@@ -1,0 +1,24 @@
+export interface sendMessageData {
+    text: string,
+    image: string,
+    replyTo: string
+}
+
+export interface Message {
+    _id: string
+    text: string
+    sender: string
+    senderName?: string
+    createdAt: string
+    status: 'sent' | 'delivered' | 'read'
+    image?: string
+    replyTo?: string
+}
+
+export interface PrivateMessage extends Message {
+    receiver: string
+}
+
+export interface GroupMessage extends Message {
+    groupId: string
+}
