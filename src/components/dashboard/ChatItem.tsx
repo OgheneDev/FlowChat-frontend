@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { User } from "lucide-react"
+import { User, Image } from "lucide-react"
 import { formatTime } from "@/utils/utils"
 import { MessageStatus } from "./MessageStatus"
 import { useChatStore } from "@/stores/useChatStore"
@@ -16,6 +16,28 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   const displayName = type === 'group' ? item.name : item.fullName
   const image = type === 'group' ? item.groupImage : item.profilePicture
   const isChat = type === 'user'
+
+  // Get last message display text
+  const getLastMessagePreview = () => {
+    if (!item.lastMessage) return 'No messages yet'
+    
+    const { text, image } = item.lastMessage
+    
+    // If there's both text and image, show the text
+    if (text) return text
+    
+    // If there's only an image, show image indicator
+    if (image) {
+      return (
+        <span className="flex items-center gap-1 text-[#999999]">
+          <Image className="w-3 h-3" />
+          <span>Photo</span>
+        </span>
+      )
+    }
+    
+    return 'No messages yet'
+  }
 
   return (
     <div
@@ -32,13 +54,13 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
 
       <div className="flex flex-col justify-center flex-1 min-w-0">
         <h3 className="font-semibold text-[#ffffff] truncate text-sm">{displayName}</h3>
-        <p className="text-xs text-[#999999] truncate">
+        <div className="text-xs text-[#999999] truncate">
           {isChat
-            ? item.lastMessage?.text || 'No messages yet'
+            ? getLastMessagePreview()
             : type === 'contact'
               ? 'Contact'
-              : item.lastMessage?.text || 'No messages yet'}
-        </p>
+              : getLastMessagePreview()}
+        </div>
       </div>
 
       {isChat && item.lastMessage && (
