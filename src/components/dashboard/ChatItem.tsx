@@ -72,7 +72,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
               e.stopPropagation();
               toggleStarChat(item._id);
             }}
-            className={`mt-1 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+            className={`mt-1 p-1 rounded opacity-0 cursor-pointer group-hover:opacity-100 transition-opacity ${
               isStarred ? "opacity-100" : ""
             } hover:bg-[#2a2a2a]`}
             aria-label={isStarred ? "Unstar" : "Star"}

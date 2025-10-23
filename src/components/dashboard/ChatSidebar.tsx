@@ -156,7 +156,7 @@ const ChatSidebar = () => {
           <button
             onClick={() => !isUpdating && fileInputRef.current?.click()}
             disabled={isUpdating}
-            className="size-14 rounded-full overflow-hidden ring-2 ring-transparent focus:ring-[#00d9ff] transition-all duration-200"
+            className="size-14 rounded-full cursor-pointer overflow-hidden ring-2 ring-transparent focus:ring-[#00d9ff] transition-all duration-200"
             aria-label="Change profile picture"
           >
             {isUpdating ? (
@@ -197,7 +197,7 @@ const ChatSidebar = () => {
               key={label}
               onClick={onClick}
               aria-label={label}
-              className="p-2 rounded-lg hover:bg-[#1e1e1e] transition-all duration-200 group"
+              className="p-2 rounded-lg cursor-pointer hover:bg-[#1e1e1e] transition-all duration-200 group"
             >
               <Icon className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
             </button>
