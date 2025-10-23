@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { SkeletonLoader } from "./SidebarSkeletonLoader";
 import ChatItem from "./ChatItem";
 import { MessageCircle, Users, User } from "lucide-react";
-
-type Tab = "chats" | "contacts" | "groups";
+import { Tab } from "@/stores";
+import { useStarringStore } from "@/stores";
 
 interface TabContentProps {
   isLoading: boolean;
@@ -18,16 +18,17 @@ interface TabContentProps {
 const EmptyState = ({ title, description, icon: Icon }: { title: string; description: string; icon: React.ReactNode }) => (
   <div>
     <div className="flex flex-col items-center justify-center h-64 text-center px-6">
-    <div className="p-4 bg-[#1e1e1e] rounded-full mb-4">
-      {Icon}
+      <div className="p-4 bg-[#1e1e1e] rounded-full mb-4">
+        {Icon}
+      </div>
+      <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
+      <p className="text-sm text-[#999999]">{description}</p>
     </div>
-    <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
-    <p className="text-sm text-[#999999]">{description}</p>
-  </div> <div className="mt-4">
-    <button className="text-sm text-[#00d9ff] hover:underline">
-      {title === "No chats" ? "Start a conversation" : title === "No contacts" ? "Add contact" : "Create group"}
-    </button>
-  </div>
+    <div className="mt-4">
+      <button className="text-sm text-[#00d9ff] hover:underline">
+        {title === "No chats" ? "Start a conversation" : title === "No contacts" ? "Add contact" : "Create group"}
+      </button>
+    </div>
   </div>
 );
 
@@ -38,7 +39,15 @@ export const TabContent: React.FC<TabContentProps> = ({
   filteredContacts,
   filteredGroups,
 }) => {
-  if (isLoading) {
+  const { loadStarredData, isLoading: isStarredLoading } = useStarringStore();
+
+  // Load starred data when component mounts
+  useEffect(() => {
+    loadStarredData();
+  }, [loadStarredData]);
+
+  // Show loading state if either chats are loading OR starred data is loading
+  if (isLoading || isStarredLoading) {
     return (
       <div className="p-2 space-y-1">
         {[...Array(6)].map((_, i) => (

@@ -1,8 +1,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Image, X, Reply, Paperclip } from "lucide-react";
-import { useChatStore } from "@/stores/useChatStore";
+import { Send, Paperclip, X, Reply } from "lucide-react";
+import {
+  usePrivateChatStore,
+  useGroupStore,
+  useUIStore,
+} from "@/stores"; // Only from index.ts
+import { useAuthStore } from "@/stores/useAuthStore";
 
 interface MessageInputProps {
   receiverId: string;
@@ -16,17 +21,20 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const {
-    sendPrivateMessage,
-    sendGroupMessage,
-    isSendingMessage,
-    replyingTo,
-    clearReply,
-    authUser,
-  } = useChatStore() as any;
+  // All from @/stores
+  const { sendPrivateMessage, isSendingMessage: isPrivateSending } = usePrivateChatStore();
+  const { sendGroupMessage, isSendingMessage: isGroupSending } = useGroupStore();
+  const { replyingTo, clearReply } = useUIStore();
+  const { authUser } = useAuthStore() as any;
 
-  const replyName = replyingTo?.senderId?._id === authUser?._id ? "You" : replyingTo?.senderId?.fullName || "User";
+  const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
 
+  const replyName =
+    replyingTo?.senderId?._id === authUser?._id
+      ? "You"
+      : replyingTo?.senderId?.fullName || "User";
+
+  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -35,10 +43,14 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   }, [text]);
 
-  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return alert("Max 5MB");
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Max 5MB");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result as string);
@@ -46,54 +58,99 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     setImage(file);
   };
 
+  // Send message
   const send = async () => {
     if (isSendingMessage || (!text.trim() && !image)) return;
 
-    const payload: any = { text: text.trim() };
-    if (image) payload.image = await new Promise(r => { const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsDataURL(image); });
+    const payload: any = {};
+    if (text.trim()) payload.text = text.trim();
+    if (image) {
+      payload.image = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(image);
+      });
+    }
     if (replyingTo) payload.replyTo = replyingTo._id;
 
-    type === "group" ? await sendGroupMessage(receiverId, payload) : await sendPrivateMessage(receiverId, payload);
+    try {
+      if (type === "group") {
+        await sendGroupMessage(receiverId, payload);
+      } else {
+        await sendPrivateMessage(receiverId, payload);
+      }
 
-    setText("");
-    setImage(null);
-    setPreview("");
-    clearReply();
+      setText("");
+      setImage(null);
+      setPreview("");
+      clearReply();
+    } catch (error) {
+      console.error("Failed to send message:", error);
+    }
   };
 
   return (
     <div className="border-t border-[#2a2a2a] bg-[#1e1e1e] p-4 space-y-3">
+      {/* Reply Preview */}
       {replyingTo && (
         <div className="bg-[#2a2a2a]/60 rounded-lg p-3 border-l-4 border-[#00d9ff] flex items-center gap-3 animate-in slide-in-from-top">
           <Reply className="w-4 h-4 text-[#00d9ff]" />
           <div className="flex-1">
-            <p className="text-xs text-[#00d9ff] font-semibold">Replying to {replyName}</p>
-            <p className="text-xs text-[#999] truncate">{replyingTo.text || "Photo"}</p>
+            <p className="text-xs text-[#00d9ff] font-semibold">
+              Replying to {replyName}
+            </p>
+            <p className="text-xs text-[#999] truncate">
+              {replyingTo.text || "Photo"}
+            </p>
           </div>
-          <button onClick={clearReply} className="p-1 hover:bg-[#333] rounded"><X className="w-4 h-4 text-[#999]" /></button>
+          <button
+            onClick={clearReply}
+            className="p-1 hover:bg-[#333] rounded"
+          >
+            <X className="w-4 h-4 text-[#999]" />
+          </button>
         </div>
       )}
 
+      {/* Image Preview */}
       {preview && (
         <div className="relative inline-block">
           <img src={preview} alt="preview" className="max-h-32 rounded-lg" />
-          <button onClick={() => { setImage(null); setPreview(""); }} className="absolute top-1 right-1 p-1 bg-black/70 rounded-full">
+          <button
+            onClick={() => {
+              setImage(null);
+              setPreview("");
+            }}
+            className="absolute top-1 right-1 p-1 bg-black/70 rounded-full"
+          >
             <X className="w-4 h-4 text-white" />
           </button>
         </div>
       )}
 
+      {/* Input Area */}
       <div className="flex items-end gap-2">
         <label className="p-2 hover:bg-[#2a2a2a] rounded-lg cursor-pointer transition-colors">
           <Paperclip className="w-5 h-5 text-[#999]" />
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImage}
+          />
         </label>
 
         <textarea
           ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
           placeholder="Type a message..."
           className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm resize-none max-h-32 overflow-y-auto"
           rows={1}

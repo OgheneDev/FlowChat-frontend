@@ -3,10 +3,10 @@
 import React from 'react'
 import ChatSidebar from '@/components/dashboard/ChatSidebar'
 import ChatWindow from '@/components/dashboard/ChatWindow'
-import { useChatStore } from '@/stores/useChatStore'
+import { useUIStore } from '@/stores'
 
 const DashboardPage = () => {
-  const { selectedUser, activeTab } = useChatStore() as any
+  const { selectedUser, activeTab } = useUIStore()
   
   return (
     <div className="h-screen">

@@ -7,7 +7,7 @@ export interface sendMessageData {
 export interface Message {
     _id: string
     text: string
-    sender: string
+    senderId: string
     senderName?: string
     createdAt: string
     status: 'sent' | 'delivered' | 'read'

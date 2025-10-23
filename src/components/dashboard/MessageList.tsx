@@ -10,12 +10,17 @@ import {
   Forward,
   Download,
   X,
-  Pin,
   Star,
 } from "lucide-react";
 
-import { useChatStore } from "@/stores/useChatStore";
+import {
+  usePrivateChatStore,
+  useGroupStore,
+  useUIStore,
+  useStarringStore,
+} from "@/stores";
 import { useAuthStore } from "@/stores/useAuthStore";
+
 import { formatTime } from "@/utils/utils";
 import { ImageModal } from "./ImageModal";
 
@@ -29,26 +34,39 @@ type ContextEvent =
   | React.TouchEvent<HTMLDivElement>;
 
 const MessageList = ({ isLoading, type }: MessageListProps) => {
+  /* --------------------------------------------------------------------- */
+  /*  Stores                                                               */
+  /* --------------------------------------------------------------------- */
   const {
     privateMessages,
+    deleteMessage: deletePrivate,
+    editMessage: editPrivate,
+    isSendingMessage: isPrivateSending,
+  } = usePrivateChatStore();
+
+  const {
     groupMessages,
-    chats,
-    groups,
-    setReplyingTo,
-    deleteMessage,
-    editMessage,
-    pinMessage,
-    unpinMessage,
-    toggleStarMessage,
-    starredMessages,
-    isDeletingMessage,
-    isEditingMessage,
-  } = useChatStore();
+    deleteMessage: deleteGroup,
+    editMessage: editGroup,
+    isSendingMessage: isGroupSending,
+  } = useGroupStore();
+
+  const { setReplyingTo } = useUIStore();
+  const { toggleStarMessage, starredMessages } = useStarringStore();
 
   const { authUser } = useAuthStore() as { authUser: { _id: string } | null };
 
+  /* --------------------------------------------------------------------- */
+  /*  Derived data                                                         */
+  /* --------------------------------------------------------------------- */
   const messages = type === "group" ? groupMessages : privateMessages;
+  const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
+  const deleteMessage = type === "group" ? deleteGroup : deletePrivate;
+  const editMessage = type === "group" ? editGroup : editPrivate;
 
+  /* --------------------------------------------------------------------- */
+  /*  Local UI state                                                       */
+  /* --------------------------------------------------------------------- */
   const [fullImage, setFullImage] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -58,9 +76,13 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
   const [deleteModal, setDeleteModal] = useState<{ message: any } | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
+  /* --------------------------------------------------------------------- */
+  /*  Auto-scroll & Context Menu Close                                     */
+  /* --------------------------------------------------------------------- */
   useEffect(() => {
     const timer = setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -78,6 +100,9 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     return () => document.removeEventListener("click", close);
   }, []);
 
+  /* --------------------------------------------------------------------- */
+  /*  Helpers                                                              */
+  /* --------------------------------------------------------------------- */
   const isStarred = (msgId: string) => starredMessages.includes(msgId);
 
   const startReply = (msg: any) => {
@@ -99,7 +124,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
   const saveEdit = async () => {
     if (!editingMessageId || !editText.trim()) return;
     try {
-      await editMessage(editingMessageId, { text: editText.trim() }, type === "group");
+      await editMessage(editingMessageId, { text: editText.trim() });
       setEditingMessageId(null);
       setEditText("");
     } catch (err) {
@@ -115,10 +140,10 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
   const handleDelete = async (deleteType: "me" | "everyone") => {
     if (!deleteModal) return;
     try {
-      await deleteMessage(
-        { messageId: deleteModal.message._id, deleteType },
-        type === "group"
-      );
+      await deleteMessage({
+        messageId: deleteModal.message._id,
+        deleteType,
+      });
     } catch (err) {
       console.error("Delete failed:", err);
     }
@@ -127,50 +152,6 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
 
   const openDeleteModal = (msg: any) => {
     setDeleteModal({ message: msg });
-    setContextMenu(null);
-  };
-
-  const getChatOrGroupId = (msg: any): { chatId?: string; groupId?: string } => {
-    if (type === "group") {
-      return { groupId: msg.groupId };
-    }
-
-    const chat = chats.find((c: any) =>
-      Array.isArray(c.participants) &&
-      c.participants.some((p: string | undefined) => p === authUser?._id)
-    );
-    return { chatId: chat?._id };
-  };
-
-  const handlePin = async (msg: any) => {
-    const ids = getChatOrGroupId(msg);
-    if (!ids.chatId && !ids.groupId) return;
-
-    try {
-      await pinMessage({
-        messageId: msg._id,
-        ...(ids.chatId ? { chatId: ids.chatId } : {}),
-        ...(ids.groupId ? { groupId: ids.groupId } : {}),
-      });
-    } catch (e) {
-      console.error(e);
-    }
-    setContextMenu(null);
-  };
-
-  const handleUnpin = async (msg: any) => {
-    const ids = getChatOrGroupId(msg);
-    if (!ids.chatId && !ids.groupId) return;
-
-    try {
-      await unpinMessage({
-        messageId: msg._id,
-        ...(ids.chatId ? { chatId: ids.chatId } : {}),
-        ...(ids.groupId ? { groupId: ids.groupId } : {}),
-      });
-    } catch (e) {
-      console.error(e);
-    }
     setContextMenu(null);
   };
 
@@ -183,6 +164,9 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     }
   };
 
+  /* --------------------------------------------------------------------- */
+  /*  Context Menu Positioning                                             */
+  /* --------------------------------------------------------------------- */
   const showContextMenu = (e: ContextEvent, msg: any) => {
     e.preventDefault();
 
@@ -199,7 +183,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     }
 
     const menuWidth = 210;
-    const menuHeight = 380;
+    const menuHeight = 300;
     const padding = 16;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -226,6 +210,9 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     document.addEventListener("touchend", cancel, { once: true });
   };
 
+  /* --------------------------------------------------------------------- */
+  /*  Render Helpers                                                       */
+  /* --------------------------------------------------------------------- */
   const MessageSkeleton = () => (
     <div className="flex gap-3 p-4 animate-pulse">
       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2a2a2a] to-[#1a1a1a] shadow-sm" />
@@ -239,6 +226,9 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     </div>
   );
 
+  /* --------------------------------------------------------------------- */
+  /*  Loading / Empty UI                                                   */
+  /* --------------------------------------------------------------------- */
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto py-4 px-2 bg-gradient-to-b from-transparent via-[#0a0a0a]/20 to-transparent">
@@ -272,35 +262,23 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     );
   }
 
+  /* --------------------------------------------------------------------- */
+  /*  Main Render                                                          */
+  /* --------------------------------------------------------------------- */
   return (
     <>
-      <div key={type} className="flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent">
         {messages.map((message: any, index: number) => {
-          const senderIdValue =
-            typeof message.senderId === "string"
-              ? message.senderId
-              : message.senderId?._id;
-
-          const isOwn = senderIdValue === authUser?._id;
+          const senderId = typeof message.senderId === "string" ? message.senderId : message.senderId?._id;
+          const isOwn = senderId === authUser?._id;
 
           let senderFullName: string | null = null;
-          let senderProfileImage: string | null = null;
+          let senderProfilePic: string | null = null;
 
-          if (!isOwn) {
-            if (typeof message.senderId === "object") {
-              senderFullName = message.senderId.fullName;
-              senderProfileImage = message.senderId.profilePic;
-            } else {
-              const partner = chats.find((c: any) => c._id === senderIdValue);
-              if (partner) {
-                senderFullName = partner.fullName ?? null;
-                senderProfileImage = partner.profilePic ?? null;
-              }
-            }
+          if (!isOwn && typeof message.senderId === "object") {
+            senderFullName = message.senderId.fullName || null;
+            senderProfilePic = message.senderId.profilePic || null;
           }
-
-          const senderName =
-            type === "group" && !isOwn ? senderFullName || "Unknown" : null;
 
           const showDateSeparator =
             index === 0 ||
@@ -308,24 +286,10 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
               new Date(message.createdAt).toDateString();
 
           const isEditing = editingMessageId === message._id;
-
-          const target = type === "group"
-            ? groups.find((g) => g._id === message.groupId)
-            : chats.find((c: any) =>
-                Array.isArray(c.participants) && 
-                c.participants.some((p: string | undefined) => p === authUser?._id)
-              );
-
-          const isPinned = target?.pinnedMessages?.includes(message._id) ?? false;
           const starred = isStarred(message._id);
 
           const initials = senderFullName
-            ? senderFullName
-                .split(" ")
-                .map((n: string) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2)
+            ? senderFullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
             : "?";
 
           return (
@@ -343,20 +307,14 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
               )}
 
               <div
-                className={`flex gap-3 group transition-all duration-200 ${
-                  isOwn ? "flex-row-reverse" : ""
-                }`}
+                className={`flex gap-3 group transition-all duration-200 ${isOwn ? "flex-row-reverse" : ""}`}
                 onContextMenu={(e) => isOwn && showContextMenu(e, message)}
                 onTouchStart={(e) => isOwn && handleTouchStart(e, message)}
               >
                 {!isOwn && (
                   <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-[#2a2a2a] ring-offset-2 ring-offset-transparent transition-all group-hover:ring-[#00d9ff]/30">
-                    {senderProfileImage ? (
-                      <img
-                        src={senderProfileImage}
-                        alt={senderFullName || "User"}
-                        className="w-full h-full object-cover"
-                      />
+                    {senderProfilePic ? (
+                      <img src={senderProfilePic} alt={senderFullName || "User"} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#00d9ff] bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]">
                         {initials}
@@ -366,9 +324,9 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
                 )}
 
                 <div className="flex flex-col gap-1 max-w-[78%] md:max-w-[65%]">
-                  {senderName && (
+                  {type === "group" && !isOwn && senderFullName && (
                     <span className="text-xs font-semibold text-[#00d9ff] ml-1 tracking-tight">
-                      {senderName}
+                      {senderFullName}
                     </span>
                   )}
 
@@ -379,32 +337,16 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
                         : "bg-[#1f1f1f] shadow-lg border border-[#2a2a2a]"
                     }`}
                   >
-                    {isPinned && (
-                      <div className="absolute -top-3 -right-3 z-20 group">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-[#00d9ff] blur-md scale-150 opacity-60"></div>
-                          <div className="relative bg-black text-[#00d9ff] rounded-full p-1.5 shadow-lg">
-                            <Pin className="w-3.5 h-3.5" />
-                          </div>
-                        </div>
-                        <div className="absolute -bottom-6 right-0 text-[10px] font-medium text-[#00d9ff] bg-black/80 px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          Pinned
-                        </div>
-                      </div>
-                    )}
-
                     {message.replyTo && (
                       <div
                         className={`px-3 py-2.5 m-2 mb-1 rounded-lg border-l-4 ${
-                          isOwn
-                            ? "bg-white/10 border-white/40"
-                            : "bg-[#2a2a2a]/50 border-[#00d9ff]/50"
+                          isOwn ? "bg-white/10 border-white/40" : "bg-[#2a2a2a]/50 border-[#00d9ff]/50"
                         } backdrop-blur-sm`}
                       >
                         <div className="flex items-center gap-2 text-xs font-medium">
                           <Reply className="w-3 h-3 text-[#00d9ff]" />
                           <span className="text-[#00d9ff]">
-                            {isOwn ? "You" : senderName || "User"}
+                            {isOwn ? "You" : senderFullName || "User"}
                           </span>
                           <span className="truncate text-[#aaa] max-w-[180px]">
                             {message.replyTo.text || "Image"}
@@ -491,7 +433,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Enhanced Context Menu */}
+      {/* Context Menu */}
       {contextMenu && (
         <div
           ref={contextMenuRef}
@@ -534,38 +476,11 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
           <button
             onClick={() => openDeleteModal(contextMenu.message)}
             className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
-            disabled={isDeletingMessage}
+            disabled={isSendingMessage}
           >
             <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
             <span>Delete</span>
           </button>
-
-          {(() => {
-            const msg = contextMenu.message;
-            const { chatId, groupId } = getChatOrGroupId(msg);
-            const target = type === "group"
-              ? groups.find((g) => g._id === groupId)
-              : chats.find((c) => c._id === chatId);
-            const pinned = target?.pinnedMessages?.includes(msg._id) ?? false;
-
-            return pinned ? (
-              <button
-                onClick={() => handleUnpin(msg)}
-                className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-              >
-                <Pin className="w-4 h-4 rotate-45 text-[#00d9ff] group-hover:scale-110 transition-transform" />
-                <span>Unpin</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => handlePin(msg)}
-                className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-              >
-                <Pin className="w-4 h-4 text-[#00d9ff] group-hover:scale-110 transition-transform" />
-                <span>Pin</span>
-              </button>
-            );
-          })()}
 
           <div className="border-t border-[#3a3a3a] my-1 mx-2" />
 
@@ -588,19 +503,17 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
         </div>
       )}
 
-      {/* Enhanced Delete Modal */}
+      {/* Delete Modal */}
       {deleteModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] rounded-2xl shadow-2xl border border-[#3a3a3a] p-6 max-w-sm w-full mx-4 animate-in zoom-in-95 duration-300">
             <h3 className="text-xl font-bold text-white mb-2">Delete Message?</h3>
-            <p className="text-sm text-[#aaa] mb-6">
-              This action cannot be undone.
-            </p>
+            <p className="text-sm text-[#aaa] mb-6">This action cannot be undone.</p>
 
             <div className="space-y-3">
               <button
                 onClick={() => handleDelete("me")}
-                disabled={isDeletingMessage}
+                disabled={isSendingMessage}
                 className="w-full px-5 py-3.5 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group shadow-md"
               >
                 <span className="font-medium">Delete for me</span>
@@ -609,7 +522,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
 
               <button
                 onClick={() => handleDelete("everyone")}
-                disabled={isDeletingMessage}
+                disabled={isSendingMessage}
                 className="w-full px-5 py-3.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between group border border-red-500/30 shadow-md"
               >
                 <span className="font-medium">Delete for everyone</span>
@@ -619,7 +532,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
 
             <button
               onClick={() => setDeleteModal(null)}
-              disabled={isDeletingMessage}
+              disabled={isSendingMessage}
               className="w-full mt-5 px-5 py-3 bg-transparent hover:bg-[#2a2a2a] text-[#999] rounded-xl transition-all disabled:opacity-50"
             >
               Cancel
@@ -628,9 +541,7 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
         </div>
       )}
 
-      {fullImage && (
-        <ImageModal src={fullImage} onClose={() => setFullImage(null)} />
-      )}
+      {fullImage && <ImageModal src={fullImage} onClose={() => setFullImage(null)} />}
     </>
   );
 };

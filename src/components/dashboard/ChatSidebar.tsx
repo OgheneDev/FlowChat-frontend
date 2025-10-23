@@ -1,61 +1,42 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useChatStore } from '@/stores/useChatStore';
+import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore } from '@/stores';
+import { Tab } from '@/stores'; // ← Use imported Tab
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
 import { TabContent } from './TabContent';
 import { Toast } from '../ui/toast';
 import Swal from 'sweetalert2';
 
-type Tab = "chats" | "contacts" | "groups";
+// Remove this line:
+// type Tab = "chats" | "contacts" | "groups";
 
 interface AuthUser {
   profilePic?: string;
 }
 
-interface ChatStore {
-  setActiveTab: (tab: Tab) => void;
-  contacts: any[];
-  groups: any[];
-  chats: any[];
-  getAllContacts: () => void;
-  getChatPartners: () => void;
-  getMyGroups: () => void;
-  isLoading: boolean;
-  selectedUser: any;
-  setSelectedUser: (user: any) => void;
-}
-
-interface AuthStore {
-  logout: () => void;
-  authUser?: AuthUser;
-  updateProfile: (data: { profilePic: string }) => Promise<void>;
-  isUpdating: boolean;
-}
-
 const ChatSidebar = () => {
-  const [activeTab, setActiveTab] = useState<Tab>("chats");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  const {
-    setActiveTab: setStoreActiveTab,
-    contacts,
-    groups,
-    chats,
-    getAllContacts,
-    getChatPartners,
-    getMyGroups,
-    isLoading,
-    selectedUser,
-    setSelectedUser
-  } = useChatStore() as ChatStore;
+  // UI Store
+  const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
 
-  const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as AuthStore;
+  // Contact Store
+  const { contacts, isLoading: isContactsLoading, getAllContacts } = useContactStore();
+
+  // Private Chats Store
+  const { chats, isLoading: isChatsLoading, getChatPartners } = usePrivateChatStore();
+
+  // Group Store
+  const { groups, isLoading: isGroupsLoading, getMyGroups } = useGroupStore();
+
+  // Auth Store
+  const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as any;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,8 +63,7 @@ const ChatSidebar = () => {
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
-    setStoreActiveTab(tab);
-    if (activeTab === 'chats' && selectedUser) {
+    if (tab !== 'chats') {
       setSelectedUser(null);
     }
   };
@@ -92,7 +72,7 @@ const ChatSidebar = () => {
     if (!searchQuery.trim()) return items;
     return items.filter((item) =>
       searchFields.some((field) =>
-        item[field]?.toLowerCase().includes(searchQuery.toLowerCase())
+        item[field]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
       )
     );
   };
@@ -148,6 +128,8 @@ const ChatSidebar = () => {
     });
   };
 
+  const isLoading = isContactsLoading || isChatsLoading || isGroupsLoading;
+
   return (
     <div className="bg-[#121212] md:w-96 text-[#ffffff] h-screen flex flex-col overflow-hidden">
       {/* Header */}
@@ -172,7 +154,6 @@ const ChatSidebar = () => {
             )}
           </button>
 
-          {/* Camera Overlay */}
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full flex items-center justify-center pointer-events-none">
             <Camera className="w-5 h-5 text-white" />
           </div>

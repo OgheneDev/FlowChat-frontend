@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { ArrowLeft, MoreVertical, Phone, Video, Users, MessageCircle } from 'lucide-react';
-import { useChatStore } from '@/stores/useChatStore';
+import { usePrivateChatStore, useGroupStore, useUIStore } from '@/stores';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 
@@ -12,7 +12,10 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
-  const { getPrivateMessages, getGroupMessages, isMessagesLoading, setSelectedUser } = useChatStore() as any;
+  const { getPrivateMessages, isMessagesLoading } = usePrivateChatStore();
+  const { getGroupMessages } = useGroupStore();
+  const { setSelectedUser } = useUIStore();
+
 
   useEffect(() => {
     if (selectedUser) {
