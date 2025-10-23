@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Image, X, Reply } from "lucide-react";
+import { Send, Image, X, Reply, Paperclip } from "lucide-react";
 import { useChatStore } from "@/stores/useChatStore";
 
 interface MessageInputProps {
@@ -9,22 +9,11 @@ interface MessageInputProps {
   type: "user" | "contact" | "group";
 }
 
-/** Helper – turn File → base64 string */
-const fileToBase64 = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
 const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const [text, setText] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
-  const [replyTo, setReplyTo] = useState<string>("");
-  const [replySenderName, setReplySenderName] = useState<string>("");
-
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -33,196 +22,89 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     isSendingMessage,
     replyingTo,
     clearReply,
-    contacts,
-    groups,
     authUser,
   } = useChatStore() as any;
 
-  /* -----------------------------------------------------------------
-   * Resolve sender name for the reply preview
-   * ----------------------------------------------------------------- */
+  const replyName = replyingTo?.senderId?._id === authUser?._id ? "You" : replyingTo?.senderId?.fullName || "User";
+
   useEffect(() => {
-    if (!replyingTo) {
-      setReplySenderName("");
-      return;
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
     }
+  }, [text]);
 
-    // If it's the current user's message
-    const senderId = replyingTo.senderId?._id ?? replyingTo.senderId;
-    if (senderId === authUser?._id) {
-      setReplySenderName("You");
-      return;
-    }
-
-    // If senderId is an object → use its fullName
-    if (replyingTo.senderId?.fullName) {
-      setReplySenderName(replyingTo.senderId.fullName);
-      return;
-    }
-
-    // If senderId is just a string → look it up
-    if (!senderId) {
-      setReplySenderName("Unknown");
-      return;
-    }
-
-    // Search contacts (private chats)
-    const contact = contacts?.find((c: any) => c._id === senderId);
-    if (contact?.fullName) {
-      setReplySenderName(contact.fullName);
-      return;
-    }
-
-    // Search groups
-    const group = groups?.find((g: any) => g._id === receiverId);
-    const member = group?.members?.find((m: any) => m._id === senderId);
-    if (member?.fullName) {
-      setReplySenderName(member.fullName);
-      return;
-    }
-
-    // Fallback
-    setReplySenderName("Unknown");
-  }, [replyingTo, contacts, groups, receiverId, authUser]);
-
-  /* -----------------------------------------------------------------
-   * Sync store → local reply state
-   * ----------------------------------------------------------------- */
-  React.useEffect(() => {
-    if (replyingTo) {
-      setReplyTo(replyingTo._id);
-    } else {
-      setReplyTo("");
-    }
-  }, [replyingTo]);
-
-  /* -----------------------------------------------------------------
-   * Image handling
-   * ----------------------------------------------------------------- */
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return alert("Max 5MB");
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be < 5 MB");
-      return;
-    }
-
-    const b64 = await fileToBase64(file);
-    setImageFile(file);
-    setImagePreview(b64);
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result as string);
+    reader.readAsDataURL(file);
+    setImage(file);
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview("");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+  const send = async () => {
+    if (isSendingMessage || (!text.trim() && !image)) return;
 
-  const cancelReply = () => {
-    setReplyTo("");
-    setReplySenderName("");
+    const payload: any = { text: text.trim() };
+    if (image) payload.image = await new Promise(r => { const reader = new FileReader(); reader.onload = () => r(reader.result); reader.readAsDataURL(image); });
+    if (replyingTo) payload.replyTo = replyingTo._id;
+
+    type === "group" ? await sendGroupMessage(receiverId, payload) : await sendPrivateMessage(receiverId, payload);
+
+    setText("");
+    setImage(null);
+    setPreview("");
     clearReply();
   };
 
-  /* -----------------------------------------------------------------
-   * Send
-   * ----------------------------------------------------------------- */
-  const handleSend = async () => {
-    if (isSendingMessage) return;
-    if (!text.trim() && !imageFile) return;
-
-    const payload = {
-      text: text.trim(),
-      image: imageFile ? await fileToBase64(imageFile) : "",
-      replyTo: replyTo || "",
-    };
-
-    try {
-      if (type === "group") {
-        await sendGroupMessage(receiverId, payload);
-      } else {
-        await sendPrivateMessage(receiverId, payload);
-      }
-
-      // reset UI
-      setText("");
-      removeImage();
-      cancelReply();
-    } catch (err) {
-      console.error("send error:", err);
-    }
-  };
-
   return (
-    <div className="p-4 border-t border-[#2a2a2a] bg-[#1e1e1e]">
-      {/* ---------- REPLY PREVIEW (WhatsApp Style) ---------- */}
-      {replyTo && replyingTo && (
-        <div className="mb-3 pl-4 pr-2 py-2.5 bg-[#2a2a2a]/60 rounded-lg border-l-4 border-[#00d9ff]">
-          <div className="flex items-start gap-3">
-            <Reply className="w-4 h-4 text-[#00d9ff] mt-0.5 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-[#00d9ff] font-semibold mb-0.5">
-                Replying to {replySenderName}
-              </p>
-              <p className="text-xs text-[#999] truncate">
-                {replyingTo.text || "(Image)"}
-              </p>
-            </div>
-            <button 
-              onClick={cancelReply} 
-              className="p-1 cursor-pointer hover:bg-[#333] rounded transition-colors"
-            >
-              <X className="w-4 h-4 text-[#999]" />
-            </button>
+    <div className="border-t border-[#2a2a2a] bg-[#1e1e1e] p-4 space-y-3">
+      {replyingTo && (
+        <div className="bg-[#2a2a2a]/60 rounded-lg p-3 border-l-4 border-[#00d9ff] flex items-center gap-3 animate-in slide-in-from-top">
+          <Reply className="w-4 h-4 text-[#00d9ff]" />
+          <div className="flex-1">
+            <p className="text-xs text-[#00d9ff] font-semibold">Replying to {replyName}</p>
+            <p className="text-xs text-[#999] truncate">{replyingTo.text || "Photo"}</p>
           </div>
+          <button onClick={clearReply} className="p-1 hover:bg-[#333] rounded"><X className="w-4 h-4 text-[#999]" /></button>
         </div>
       )}
 
-      {/* ---------- IMAGE PREVIEW ---------- */}
-      {imagePreview && (
-        <div className="mb-2 relative inline-block">
-          <img src={imagePreview} alt="preview" className="max-h-32 rounded-lg" />
-          <button
-            onClick={removeImage}
-            className="absolute cursor-pointer top-1 right-1 p-1 bg-black/70 rounded-full hover:bg-black transition-colors"
-          >
+      {preview && (
+        <div className="relative inline-block">
+          <img src={preview} alt="preview" className="max-h-32 rounded-lg" />
+          <button onClick={() => { setImage(null); setPreview(""); }} className="absolute top-1 right-1 p-1 bg-black/70 rounded-full">
             <X className="w-4 h-4 text-white" />
           </button>
         </div>
       )}
 
-      {/* ---------- INPUT ROW ---------- */}
-      <div className="flex items-center gap-2">
-        {/* Image button */}
-        <label className="p-2 hover:bg-[#2a2a2a] cursor-pointer rounded-lg transition-colors">
-          <Image className="w-5 h-5 text-[#999999]" />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleImageSelect}
-          />
+      <div className="flex items-end gap-2">
+        <label className="p-2 hover:bg-[#2a2a2a] rounded-lg cursor-pointer transition-colors">
+          <Paperclip className="w-5 h-5 text-[#999]" />
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImage} />
         </label>
 
-        {/* Text input */}
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
           placeholder="Type a message..."
-          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm"
-          onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm resize-none max-h-32 overflow-y-auto"
+          rows={1}
         />
 
-        {/* Send button */}
         <button
-          onClick={handleSend}
-          disabled={isSendingMessage || (!text.trim() && !imageFile)}
-          className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={send}
+          disabled={isSendingMessage || (!text.trim() && !image)}
+          className="p-2.5 bg-[#00d9ff] hover:bg-[#00b8d4] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Send className="w-5 h-5 text-[#00d9ff]" />
+          <Send className="w-5 h-5 text-black" />
         </button>
       </div>
     </div>

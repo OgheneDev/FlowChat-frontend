@@ -1,10 +1,9 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import { Eye, EyeOff, User, Mail, Lock, UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, User, Mail, Lock, UserPlus, AlertCircle, CheckCircle2, ArrowRight, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { Toast } from '@/components/ui/toast'
 
 interface PasswordChecks {
   minLength: boolean
@@ -31,10 +30,10 @@ const SignUpPage = () => {
     hasUpper: false,
     hasLower: false
   })
-  const [submitted, setSubmitted] = useState(false)
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const { signup, isSigningUp } = useAuthStore() as any;
 
   const validatePassword = (pass: string) => {
@@ -109,9 +108,7 @@ const SignUpPage = () => {
       setToastType('success');
       setToastMessage('Account created successfully!');
       setShowToast(true);
-      setSubmitted(true);
       
-      // Reset form
       setFormData({
         email: '',
         fullName: '',
@@ -119,7 +116,6 @@ const SignUpPage = () => {
         confirmPassword: ''
       });
 
-      // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 2000);
@@ -131,205 +127,271 @@ const SignUpPage = () => {
     }
   }
 
+  const getPasswordStrength = (): number => {
+    return Object.values(passwordChecks).filter(Boolean).length
+  }
+
+  const getStrengthColor = (): string => {
+    const strength = getPasswordStrength()
+    if (strength <= 2) return '#ef4444'
+    if (strength <= 3) return '#f59e0b'
+    if (strength === 4) return '#10b981'
+    return '#00d9ff'
+  }
+
+  const getStrengthLabel = (): string => {
+    const strength = getPasswordStrength()
+    if (strength === 0) return ''
+    if (strength <= 2) return 'Weak'
+    if (strength <= 3) return 'Fair'
+    if (strength === 4) return 'Good'
+    return 'Strong'
+  }
+
   const PasswordCheckItem = ({ checked, label }: { checked: boolean; label: string }) => (
-    <div className="flex items-center gap-2">
-      {checked ? (
-        <CheckCircle2 className="h-4 w-4 text-[#00d9ff]" />
-      ) : (
-        <div className="h-4 w-4 rounded-full border border-gray-600" />
-      )}
-      <span className={`text-xs ${checked ? 'text-[#00d9ff]' : 'text-gray-500'}`}>
+    <div className="flex items-center gap-2 transition-all duration-200">
+      <div className={`flex items-center justify-center w-4 h-4 rounded-full transition-all duration-300 ${
+        checked ? 'bg-cyan-400/20' : 'bg-transparent border border-gray-600'
+      }`}>
+        {checked && <CheckCircle2 className="h-3 w-3 text-cyan-400" />}
+      </div>
+      <span className={`text-xs transition-colors duration-200 ${checked ? 'text-cyan-400' : 'text-gray-500'}`}>
         {label}
       </span>
     </div>
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#121212' }}>
-      <Toast
-        show={showToast}
-        type={toastType}
-        message={toastMessage}
-        onClose={() => setShowToast(false)}
-      />
-      
-      <div className="w-full max-w-md">
-        {/* Logo Section */}
-        <div className="flex justify-center mb-8">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-[#00d9ff] mb-2">SignUp</div>
-            <p className="text-gray-400 text-sm">Create your account to get started</p>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-to-bl from-cyan-500/10 via-transparent to-transparent blur-3xl animate-pulse" style={{ animationDuration: '5s' }}></div>
+        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-to-tr from-blue-500/10 via-transparent to-transparent blur-3xl animate-pulse" style={{ animationDuration: '7s' }}></div>
+      </div>
+
+      {showToast && (
+        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-top duration-300">
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl backdrop-blur-sm ${
+            toastType === 'success' ? 'bg-emerald-500/90 text-white' : 'bg-red-500/90 text-white'
+          }`}>
+            {toastType === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+            <span className="font-medium">{toastMessage}</span>
           </div>
         </div>
+      )}
 
-        {/* Success Message */}
-        {submitted && (
-          <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            <span className="text-sm text-green-400">Account created successfully!</span>
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10 animate-in fade-in slide-in-from-top duration-700">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 mb-6 shadow-lg shadow-cyan-500/50">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
-        )}
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-3">
+            Join Us Today
+          </h1>
+          <p className="text-gray-400 text-base">Create your account and start your journey</p>
+        </div>
 
-        {/* Form Card */}
-        <div className="rounded-xl p-8" style={{ backgroundColor: '#1e1e1e' }}>
-          <form onSubmit={handleSubmit} className="space-y-5 ">
-            {/* Full Name Field */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <User className="h-4 w-4 text-gray-400" />
-                <label htmlFor="fullName" className="text-sm font-medium text-white">
-                  Full Name
-                </label>
+        <div className="rounded-2xl p-8 backdrop-blur-xl shadow-2xl border border-white/10 animate-in fade-in slide-in-from-bottom duration-700"
+          style={{ backgroundColor: 'rgba(20, 20, 20, 0.8)', boxShadow: '0 8px 32px rgba(0, 217, 255, 0.1)' }}>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label htmlFor="fullName" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                <User className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'fullName' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                Full Name
+              </label>
+              <div className="relative group">
+                <input
+                  id="fullName"
+                  name="fullName"
+                  type="text"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  onFocus={() => setFocusedField('fullName')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="John Doe"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60"
+                />
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'fullName' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="John Doe"
-                className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
-              />
               {errors.fullName && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.fullName}</span>
                 </div>
               )}
             </div>
 
-            {/* Email Field */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <label htmlFor="email" className="text-sm font-medium text-white">
-                  Email Address
-                </label>
+            <div className="space-y-2">
+              <label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Mail className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'email' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                Email Address
+              </label>
+              <div className="relative group">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="you@example.com"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60"
+                />
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'email' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
-              />
               {errors.email && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.email}</span>
                 </div>
               )}
             </div>
 
-            {/* Password Field */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Lock className="h-4 w-4 text-gray-400" />
-                <label htmlFor="password" className="text-sm font-medium text-white">
-                  Password
-                </label>
-              </div>
-              <div className="relative">
+            <div className="space-y-2">
+              <label htmlFor="password" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Lock className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'password' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                Password
+              </label>
+              <div className="relative group">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Create a strong password"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 transition-colors duration-200 focus:outline-none"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'password' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
 
-              {/* Password Checklist */}
               {formData.password && (
-                <div className="mt-3 p-3 rounded-lg bg-[#2a2a2a] space-y-2">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Password Strength</span>
+                    <span className="text-xs font-medium" style={{ color: getStrengthColor() }}>
+                      {getStrengthLabel()}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div className="h-full transition-all duration-500 rounded-full"
+                      style={{ width: `${(getPasswordStrength() / 5) * 100}%`, backgroundColor: getStrengthColor() }}>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {formData.password && (
+                <div className="mt-3 p-4 rounded-xl bg-black/40 border border-gray-800 space-y-2.5">
                   <PasswordCheckItem checked={passwordChecks.minLength} label="At least 8 characters" />
                   <PasswordCheckItem checked={passwordChecks.hasUpper} label="One uppercase letter" />
                   <PasswordCheckItem checked={passwordChecks.hasLower} label="One lowercase letter" />
                   <PasswordCheckItem checked={passwordChecks.hasNumber} label="One number" />
-                  <PasswordCheckItem checked={passwordChecks.hasSpecial} label="One special character" />
+                  <PasswordCheckItem checked={passwordChecks.hasSpecial} label="One special character (!@#$%^&*)" />
                 </div>
               )}
 
               {errors.password && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.password}</span>
                 </div>
               )}
             </div>
 
-            {/* Confirm Password Field */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Lock className="h-4 w-4 text-gray-400" />
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-white">
-                  Confirm Password
-                </label>
-              </div>
-              <div className="relative">
+            <div className="space-y-2">
+              <label htmlFor="confirmPassword" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Lock className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'confirmPassword' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                Confirm Password
+              </label>
+              <div className="relative group">
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
+                  onFocus={() => setFocusedField('confirmPassword')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Confirm your password"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 transition-colors duration-200 focus:outline-none"
                 >
                   {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'confirmPassword' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
+              {formData.confirmPassword && formData.password === formData.confirmPassword && (
+                <div className="flex items-center gap-2 text-emerald-400 animate-in slide-in-from-top duration-200">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-xs">Passwords match</span>
+                </div>
+              )}
               {errors.confirmPassword && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.confirmPassword}</span>
                 </div>
               )}
             </div>
 
-            {/* Submit Button */}
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={isSigningUp}
-              className="w-full py-3 rounded-lg cursor-pointer font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-6 bg-[#00d9ff] text-[#121212] hover:bg-[#00c9e8] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative w-full py-4 rounded-xl font-semibold text-base transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] mt-6"
             >
-              {isSigningUp ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-[#121212] border-t-transparent rounded-full animate-spin" />
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-4 w-4" />
-                  Create Account
-                </>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <span className="relative z-10 flex items-center gap-2">
+                {isSigningUp ? (
+                  <>
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-5 w-5" />
+                    Create Account
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+                  </>
+                )}
+              </span>
             </button>
 
-            {/* Login Link */}
-            <p className="text-center text-sm text-gray-400 mt-4">
-              Already have an account?{' '}
-              <Link href="/login" className="text-[#00d9ff] hover:underline font-medium">
-                Sign In
-              </Link>
-            </p>
-          </form>
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
+              <span className="text-xs text-gray-500 font-medium">OR</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-400">
+                Already have an account?{' '}
+                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+                  Sign In
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-gray-500">
+          <Link href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</Link>
+          <span>•</span>
+          <Link href="/terms" className="hover:text-gray-400 transition-colors">Terms of Service</Link>
         </div>
       </div>
     </div>

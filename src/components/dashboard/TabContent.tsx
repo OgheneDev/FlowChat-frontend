@@ -1,18 +1,35 @@
-"use client"
+"use client";
 
-import React from "react"
-import { SkeletonLoader } from "./SidebarSkeletonLoader"
-import ChatItem from "./ChatItem"
+import React from "react";
+import { SkeletonLoader } from "./SidebarSkeletonLoader";
+import ChatItem from "./ChatItem";
+import { MessageCircle, Users, User } from "lucide-react";
 
-type Tab = "chats" | "contacts" | "groups"
+type Tab = "chats" | "contacts" | "groups";
 
 interface TabContentProps {
-  isLoading: boolean
-  activeTab: Tab
-  filteredChats: any[]
-  filteredContacts: any[]
-  filteredGroups: any[]
+  isLoading: boolean;
+  activeTab: Tab;
+  filteredChats: any[];
+  filteredContacts: any[];
+  filteredGroups: any[];
 }
+
+const EmptyState = ({ title, description, icon: Icon }: { title: string; description: string; icon: React.ReactNode }) => (
+  <div>
+    <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+    <div className="p-4 bg-[#1e1e1e] rounded-full mb-4">
+      {Icon}
+    </div>
+    <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
+    <p className="text-sm text-[#999999]">{description}</p>
+  </div> <div className="mt-4">
+    <button className="text-sm text-[#00d9ff] hover:underline">
+      {title === "No chats" ? "Start a conversation" : title === "No contacts" ? "Add contact" : "Create group"}
+    </button>
+  </div>
+  </div>
+);
 
 export const TabContent: React.FC<TabContentProps> = ({
   isLoading,
@@ -20,58 +37,51 @@ export const TabContent: React.FC<TabContentProps> = ({
   filteredChats,
   filteredContacts,
   filteredGroups,
-}: TabContentProps) => {
+}) => {
   if (isLoading) {
     return (
-      <div className="space-y-0">
-        {[...Array(5)].map((_, i) => (
+      <div className="p-2 space-y-1">
+        {[...Array(6)].map((_, i) => (
           <SkeletonLoader key={i} />
         ))}
       </div>
-    )
+    );
   }
 
-  switch (activeTab) {
-    case "chats":
-      return filteredChats?.length > 0 ? (
-        <div>
-          {filteredChats.map((chat: any) => (
-            <ChatItem key={chat._id} item={chat} type="user" />
-          ))}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-40 text-[#999999]">
-          <p className="text-sm">No chats found</p>
-        </div>
-      )
+  const data = {
+    chats: filteredChats,
+    contacts: filteredContacts,
+    groups: filteredGroups,
+  }[activeTab];
 
-    case "contacts":
-      return filteredContacts?.length > 0 ? (
-        <div>
-          {filteredContacts.map((contact: any) => (
-            <ChatItem key={contact._id} item={contact} type="contact" />
-          ))}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-40 text-[#999999]">
-          <p className="text-sm">No contacts found</p>
-        </div>
-      )
+  if (!data || data.length === 0) {
+    const emptyConfig = {
+      chats: {
+        title: "No chats yet",
+        description: "Start messaging to see your conversations here.",
+        icon: <MessageCircle className="w-8 h-8 text-[#999999]" />,
+      },
+      contacts: {
+        title: "No contacts",
+        description: "Add people to start chatting.",
+        icon: <User className="w-8 h-8 text-[#999999]" />,
+      },
+      groups: {
+        title: "No groups",
+        description: "Create or join a group to collaborate.",
+        icon: <Users className="w-8 h-8 text-[#999999]" />,
+      },
+    };
 
-    case "groups":
-      return filteredGroups?.length > 0 ? (
-        <div>
-          {filteredGroups.map((group: any) => (
-            <ChatItem key={group._id} item={group} type="group" />
-          ))}
-        </div>
-      ) : (
-        <div className="flex items-center justify-center h-40 text-[#999999]">
-          <p className="text-sm">No groups found</p>
-        </div>
-      )
-
-    default:
-      return null
+    const config = emptyConfig[activeTab];
+    return <EmptyState {...config} />;
   }
-}
+
+  return (
+    <div className="divide-y divide-[#2a2a2a]">
+      {data.map((item: any) => (
+        <ChatItem key={item._id} item={item} type={activeTab === "groups" ? "group" : activeTab === "contacts" ? "contact" : "user"} />
+      ))}
+    </div>
+  );
+};

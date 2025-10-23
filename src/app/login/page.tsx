@@ -1,10 +1,9 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, LogIn, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { useAuthStore } from '@/stores/useAuthStore'
-import { Toast } from '@/components/ui/toast'
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +17,7 @@ const LoginPage = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
   const {login, isLoggingIn} = useAuthStore() as any
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,75 +64,95 @@ const LoginPage = () => {
     try {
       await login(formData);
       setToastType("success");
-      setToastMessage("Log in Successful!");
+      setToastMessage("Login Successful!");
       setShowToast(true);
       setSubmitted(true);
 
-      // Reset Form
       setFormData({
         email: '',
         password: '',
       });
 
-      // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 2000);
 
     } catch (error: any) {
       setToastType('error');
-      setToastMessage(error?.response?.data?.message || 'Failed to create login. Please try again.');
+      setToastMessage(error?.response?.data?.message || 'Failed to login. Please try again.');
       setShowToast(true);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#121212' }}>
-      <Toast
-        show={showToast}
-        type={toastType}
-        message={toastMessage}
-        onClose={() => setShowToast(false)}
-      />
-      <div className="w-full max-w-md">
-        {/* Logo Section */}
-        <div className="flex justify-center mb-8">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-[#00d9ff] mb-2">Welcome Back</div>
-            <p className="text-gray-400 text-sm">Sign in to your account to continue</p>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden" style={{ backgroundColor: '#0a0a0a' }}>
+      {/* Animated Background Gradient */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent blur-3xl animate-pulse" style={{ animationDuration: '4s' }}></div>
+        <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tl from-blue-500/10 via-transparent to-transparent blur-3xl animate-pulse" style={{ animationDuration: '6s' }}></div>
+      </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-top duration-300">
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-xl shadow-2xl backdrop-blur-sm ${
+            toastType === 'success' 
+              ? 'bg-emerald-500/90 text-white' 
+              : 'bg-red-500/90 text-white'
+          }`}>
+            {toastType === 'success' ? (
+              <CheckCircle2 className="h-5 w-5" />
+            ) : (
+              <AlertCircle className="h-5 w-5" />
+            )}
+            <span className="font-medium">{toastMessage}</span>
           </div>
         </div>
+      )}
 
-        {/* Success Message */}
-        {submitted && (
-          <div className="mb-6 p-4 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            <span className="text-sm text-green-400">Logged in successfully!</span>
+      <div className="w-full max-w-md relative z-10">
+        {/* Logo Section */}
+        <div className="text-center mb-10 animate-in fade-in slide-in-from-top duration-700">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-500 mb-6 shadow-lg shadow-cyan-500/50">
+            <Lock className="h-8 w-8 text-white" />
           </div>
-        )}
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent mb-3">
+            Welcome Back
+          </h1>
+          <p className="text-gray-400 text-base">Sign in to continue your journey</p>
+        </div>
 
         {/* Form Card */}
-        <div className="rounded-xl p-8" style={{ backgroundColor: '#1e1e1e' }}>
-          <div className="space-y-5">
+        <div 
+          className="rounded-2xl p-8 backdrop-blur-xl shadow-2xl border border-white/10 animate-in fade-in slide-in-from-bottom duration-700"
+          style={{ 
+            backgroundColor: 'rgba(20, 20, 20, 0.8)',
+            boxShadow: '0 8px 32px rgba(0, 217, 255, 0.1)'
+          }}
+        >
+          <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Field */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Mail className="h-4 w-4 text-gray-400" />
-                <label htmlFor="email" className="text-sm font-medium text-white">
-                  Email Address
-                </label>
+            <div className="space-y-2">
+              <label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                <Mail className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'email' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                Email Address
+              </label>
+              <div className="relative group">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  onFocus={() => setFocusedField('email')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="you@example.com"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60"
+                />
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'email' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
-              />
               {errors.email && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.email}</span>
                 </div>
@@ -140,99 +160,107 @@ const LoginPage = () => {
             </div>
 
             {/* Password Field */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-gray-400" />
-                  <label htmlFor="password" className="text-sm font-medium text-white">
-                    Password
-                  </label>
-                </div>
-                <Link href="/forgot-password" className="text-xs text-[#00d9ff] hover:underline">
-                  Forgot?
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <Lock className={`h-4 w-4 transition-colors duration-200 ${focusedField === 'password' ? 'text-cyan-400' : 'text-gray-500'}`} />
+                  Password
+                </label>
+                <Link href="/forgot-password" className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">
+                  Forgot password?
                 </Link>
               </div>
-              <div className="relative">
+              <div className="relative group">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleChange}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 rounded-lg border transition-all duration-200 bg-[#2a2a2a] border-[#2a2a2a] text-white placeholder-gray-500 focus:outline-none focus:border-[#00d9ff] focus:ring-1 focus:ring-[#00d9ff]"
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                  placeholder="Enter your password"
+                  className="w-full px-4 py-3.5 rounded-xl border transition-all duration-300 bg-black/40 border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 focus:bg-black/60 pr-12"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 transition-colors duration-200 focus:outline-none"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-r from-cyan-400/20 to-blue-400/20 -z-10 blur-xl transition-opacity duration-300 ${focusedField === 'password' ? 'opacity-100' : 'opacity-0'}`}></div>
               </div>
               {errors.password && (
-                <div className="flex items-center gap-2 mt-2 text-red-400">
+                <div className="flex items-center gap-2 text-red-400 animate-in slide-in-from-top duration-200">
                   <AlertCircle className="h-4 w-4" />
                   <span className="text-xs">{errors.password}</span>
                 </div>
               )}
             </div>
 
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center gap-3">
+            {/* Remember Me */}
+            <div className="flex items-center">
               <input
-                id="rememberMe"
+                id="remember"
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded cursor-pointer accent-[#00d9ff]"
+                className="w-4 h-4 rounded border-gray-700 bg-black/40 text-cyan-400 focus:ring-2 focus:ring-cyan-400/20 cursor-pointer"
               />
-              <label htmlFor="rememberMe" className="text-sm text-gray-400 cursor-pointer hover:text-gray-300">
-                Remember me
+              <label htmlFor="remember" className="ml-2 text-sm text-gray-400 cursor-pointer select-none">
+                Remember me for 30 days
               </label>
             </div>
 
             {/* Login Button */}
             <button
-              onClick={handleSubmit}
+              type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 mt-6 bg-[#00d9ff] text-[#121212] hover:bg-[#00c9e8] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative text-sm cursor-pointer w-full py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98]"
             >
-              {isLoggingIn ? (
-                <>
-                  <div className="h-4 w-4 border-2 border-[#121212] border-t-transparent rounded-full animate-spin" />
-                  Signing In...
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </>
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <span className="relative z-10 flex items-center gap-2">
+                {isLoggingIn ? (
+                  <>
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
+                  </>
+                )}
+              </span>
             </button>
 
             {/* Divider */}
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-gray-600"></div>
-              <span className="text-xs text-gray-500">OR</span>
-              <div className="flex-1 h-px bg-gray-600"></div>
+            <div className="flex items-center gap-4 my-8">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
+              <span className="text-xs text-gray-500 font-medium">OR</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent"></div>
             </div>
 
             {/* Sign Up Link */}
-            <p className="text-center text-sm text-gray-400 mt-6">
-              Don't have an account?{' '}
-              <Link href="/signup" className="text-[#00d9ff] hover:underline font-medium">
-                Sign Up
-              </Link>
-            </p>
-          </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-400">
+                Don't have an account?{' '}
+                <Link href="/signup" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+                  Create Account
+                </Link>
+              </p>
+            </div>
+          </form>
         </div>
 
         {/* Footer Links */}
-        <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
+        <div className="mt-8 flex items-center justify-center gap-4 text-xs text-gray-500">
           <Link href="/privacy" className="hover:text-gray-400 transition-colors">Privacy Policy</Link>
           <span>•</span>
           <Link href="/terms" className="hover:text-gray-400 transition-colors">Terms of Service</Link>
+          <span>•</span>
+          <Link href="/support" className="hover:text-gray-400 transition-colors">Support</Link>
         </div>
       </div>
     </div>

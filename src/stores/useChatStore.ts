@@ -51,9 +51,14 @@ interface ReplyContext {
 interface ChatWithPinned {
   _id: string;
   participants: string[];
+  participantDetails?: Array<{
+    _id: string;
+    fullName: string;
+    profilePic?: string;
+  }>;
   pinnedMessages: string[];
-  fullName?: string;      // for private chats
-  profilePic?: string;
+  fullName?: string;      // for private chats (legacy?)
+  profilePic?: string;    // for private chats (legacy?)
 }
 
 interface GroupWithPinned {

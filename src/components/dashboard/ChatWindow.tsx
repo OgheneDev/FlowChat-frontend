@@ -1,124 +1,130 @@
-"use client"
+"use client";
 
-import React, { useEffect } from 'react'
-import { User, ArrowLeft, MoreVertical, Phone, Video } from 'lucide-react'
-import { useChatStore } from '@/stores/useChatStore'
-import MessageList from './MessageList'
-import MessageInput from './MessageInput'
+import React, { useEffect } from 'react';
+import { ArrowLeft, MoreVertical, Phone, Video, Users, MessageCircle } from 'lucide-react';
+import { useChatStore } from '@/stores/useChatStore';
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
 
 interface ChatWindowProps {
-  selectedUser: any
-  type: 'user' | 'contact' | 'group' 
+  selectedUser: any;
+  type: 'user' | 'contact' | 'group';
 }
 
 const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
-  const { getPrivateMessages, getGroupMessages, isMessagesLoading, setSelectedUser } = useChatStore() as any
+  const { getPrivateMessages, getGroupMessages, isMessagesLoading, setSelectedUser } = useChatStore() as any;
 
   useEffect(() => {
     if (selectedUser) {
       if (type === 'group') {
-        getGroupMessages(selectedUser._id)
+        getGroupMessages(selectedUser._id);
       } else {
-        getPrivateMessages(selectedUser._id)
-      } 
+        getPrivateMessages(selectedUser._id);
+      }
     }
-  }, [selectedUser, type])
+  }, [selectedUser, type]);
 
-  const handleBack = () => {
-    setSelectedUser(null)
-  }
+  const handleBack = () => setSelectedUser(null);
 
   if (!selectedUser) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#252525]">
-        <div className="text-center space-y-4">
-          <div className="w-24 h-24 mx-auto rounded-full bg-[#2a2a2a] flex items-center justify-center">
-            <User className="w-12 h-12 text-[#666]" />
+      <div className="hidden md:flex flex-1 items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#1e1e1e]">
+        <div className="text-center space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="relative mx-auto w-28 h-28">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#00d9ff]/20 to-[#00b8d4]/20 rounded-full blur-xl animate-pulse"></div>
+            <div className="relative size-full rounded-full bg-[#2a2a2a] flex items-center justify-center">
+              {type === 'group' ? (
+                <Users className="w-14 h-14 text-[#666]" />
+              ) : (
+                <MessageCircle className="w-14 h-14 text-[#666]" />
+              )}
+            </div>
           </div>
           <div>
-            <p className="text-gray-400 text-lg font-medium">No chat selected</p>
-            <p className="text-gray-600 text-sm mt-1">Choose a conversation to start messaging</p>
+            <h3 className="text-xl font-semibold text-white">No conversation selected</h3>
+            <p className="text-sm text-[#999] mt-1">Pick a chat from the sidebar to start messaging</p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="h-screen flex md:flex-1 flex-col bg-gradient-to-b from-[#1a1a1a] to-[#1e1e1e]">
-      {/* Enhanced Header */}
-      <div className="relative bg-[#1e1e1e]/80 backdrop-blur-xl border-b border-[#2a2a2a]/50 shadow-lg">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3 flex-1">
-            {/* Back button with hover effect */}
-            <button 
-              className="group p-2 hover:bg-[#2a2a2a] cursor-pointer rounded-xl transition-all duration-200 active:scale-95"
+    <div className="h-screen flex flex-col bg-gradient-to-b from-[#1a1a1a] to-[#1e1e1e] md:flex-1">
+      {/* Glass Header */}
+      <header className="relative bg-[#1e1e1e]/70 backdrop-blur-2xl border-b border-[#2a2a2a]/50 z-10">
+        <div className="flex items-center justify-between p-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button
               onClick={handleBack}
+              className="md:hidden p-2 rounded-xl hover:bg-[#2a2a2a] transition-all duration-200 group"
+              aria-label="Back to chats"
             >
-              <ArrowLeft className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
+              <ArrowLeft className="w-5 h-5 text-[#999] group-hover:text-white transition-colors" />
             </button>
-            
-            {/* Avatar with online indicator */}
+
             <div className="relative">
-              <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#00d9ff] to-[#0099cc] p-0.5">
-                <div className="w-full h-full rounded-full overflow-hidden bg-[#2a2a2a] flex items-center justify-center">
-                  {selectedUser.profilePic ? (
-                    <img 
-                      src={selectedUser.profilePic} 
-                      alt={selectedUser.fullName} 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-5 h-5 text-[#999999]" />
-                  )}
-                </div>
+              <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-[#2a2a2a] ring-offset-2 ring-offset-[#1e1e1e]">
+                {selectedUser.profilePic || selectedUser.groupImage ? (
+                  <img
+                    src={selectedUser.profilePic || selectedUser.groupImage}
+                    alt={type === 'group' ? selectedUser.name : selectedUser.fullName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#2a2a2a] flex items-center justify-center">
+                    {type === 'group' ? (
+                      <Users className="w-6 h-6 text-[#666]" />
+                    ) : (
+                      <div className="text-lg font-bold text-[#00d9ff]">
+                        {(selectedUser.fullName || selectedUser.name || '?')[0].toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              {type !== 'group' && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00ff88] rounded-full border-2 border-[#1e1e1e]" />
+              {type !== 'group' && selectedUser.isOnline && (
+                <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#00ff88] border-2 border-[#1e1e1e] rounded-full animate-pulse"></span>
               )}
             </div>
 
-            {/* User info */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-white truncate">
+              <h3 className="font-semibold text-white truncate text-base">
                 {type === 'group' ? selectedUser.name : selectedUser.fullName}
               </h3>
               <p className="text-xs text-[#00d9ff] font-medium">
-                {type === 'group' 
-                  ? `${selectedUser.members?.length || 0} members` 
-                  : 'Active now'}
+                {type === 'group'
+                  ? `${selectedUser.members?.length || 0} members`
+                  : selectedUser.isOnline
+                  ? 'Active now'
+                  : 'Offline'}
               </p>
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-1">
             {type !== 'group' && (
               <>
-                <button className="p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all duration-200 active:scale-95 group">
-                  <Phone className="w-5 h-5 text-[#999999] group-hover:text-[#00d9ff] transition-colors" />
+                <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
+                  <Phone className="w-5 h-5 text-[#999] group-hover:text-[#00d9ff] transition-colors" />
                 </button>
-                <button className="p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all duration-200 active:scale-95 group">
-                  <Video className="w-5 h-5 text-[#999999] group-hover:text-[#00d9ff] transition-colors" />
+                <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
+                  <Video className="w-5 h-5 text-[#999] group-hover:text-[#00d9ff] transition-colors" />
                 </button>
               </>
             )}
-            <button className="p-2.5 hover:bg-[#2a2a2a] rounded-xl transition-all duration-200 active:scale-95 group">
-              <MoreVertical className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
+            <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
+              <MoreVertical className="w-5 h-5 text-[#999] group-hover:text-white transition-colors" />
             </button>
           </div>
         </div>
-        
-        {/* Subtle gradient line */}
-        <div className="h-0.5 bg-gradient-to-r from-transparent via-[#00d9ff]/30 to-transparent" />
-      </div>
+        <div className="h-px bg-gradient-to-r from-transparent via-[#00d9ff]/30 to-transparent" />
+      </header>
 
-        <MessageList isLoading={isMessagesLoading} type={type} />
-
-      {/* Enhanced Input */}
+      <MessageList isLoading={isMessagesLoading} type={type} />
       <MessageInput receiverId={selectedUser._id} type={type} />
     </div>
-  )
-}
+  );
+};
 
-export default ChatWindow
+export default ChatWindow;

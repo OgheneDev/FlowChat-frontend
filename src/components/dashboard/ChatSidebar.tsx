@@ -1,48 +1,47 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react'
-import { useChatStore } from '@/stores/useChatStore'
-import { useAuthStore } from '@/stores/useAuthStore'
-import { Bell, Settings, LogOut, Search, X, User, Camera } from 'lucide-react'
-import { TabContent } from './TabContent'
-import { Toast } from '../ui/toast'
-import Swal from 'sweetalert2' 
+import React, { useState, useEffect, useRef } from 'react';
+import { useChatStore } from '@/stores/useChatStore';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
+import { TabContent } from './TabContent';
+import { Toast } from '../ui/toast';
+import Swal from 'sweetalert2';
 
-type Tab = "chats" | "contacts" | "groups"
+type Tab = "chats" | "contacts" | "groups";
 
 interface AuthUser {
-  profilePic?: string
-  // Add other properties as needed
+  profilePic?: string;
 }
 
 interface ChatStore {
-  setActiveTab: (tab: Tab) => void
-  contacts: any[]
-  groups: any[]
-  chats: any[]
-  getAllContacts: () => void
-  getChatPartners: () => void
-  getMyGroups: () => void
-  isLoading: boolean
-  selectedUser: any
-  setSelectedUser: (user: any) => void
+  setActiveTab: (tab: Tab) => void;
+  contacts: any[];
+  groups: any[];
+  chats: any[];
+  getAllContacts: () => void;
+  getChatPartners: () => void;
+  getMyGroups: () => void;
+  isLoading: boolean;
+  selectedUser: any;
+  setSelectedUser: (user: any) => void;
 }
 
 interface AuthStore {
-  logout: () => void
-  authUser?: AuthUser
-  updateProfile: (data: { profilePic: string }) => Promise<void>
-  isUpdating: boolean
+  logout: () => void;
+  authUser?: AuthUser;
+  updateProfile: (data: { profilePic: string }) => Promise<void>;
+  isUpdating: boolean;
 }
 
 const ChatSidebar = () => {
-  const [activeTab, setActiveTab] = useState<Tab>("chats")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedImg, setSelectedImg] = useState<string | null>(null)
-  const [showToast, setShowToast] = useState(false)
-  const [toastMessage, setToastMessage] = useState('')
-  const [toastType, setToastType] = useState<'success' | 'error'>('success')
-  
+  const [activeTab, setActiveTab] = useState<Tab>("chats");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedImg, setSelectedImg] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
   const {
     setActiveTab: setStoreActiveTab,
     contacts,
@@ -54,145 +53,130 @@ const ChatSidebar = () => {
     isLoading,
     selectedUser,
     setSelectedUser
-  } = useChatStore() as ChatStore
-  
-  const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as AuthStore
-  
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  } = useChatStore() as ChatStore;
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'chats', label: 'Chats' },
-    { id: 'contacts', label: 'Contacts' },
-    { id: 'groups', label: 'Groups' },
-  ]
+  const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as AuthStore;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'chats', label: 'Chats', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'contacts', label: 'Contacts', icon: <User className="w-4 h-4" /> },
+    { id: 'groups', label: 'Groups', icon: <Users className="w-4 h-4" /> },
+  ];
 
   useEffect(() => {
     if (authUser) {
-      getAllContacts()
-      getChatPartners()
-      getMyGroups()
+      getAllContacts();
+      getChatPartners();
+      getMyGroups();
     }
-  }, [authUser, getAllContacts, getChatPartners, getMyGroups])
+  }, [authUser, getAllContacts, getChatPartners, getMyGroups]);
 
-  // Handle toast cleanup
   useEffect(() => {
     if (showToast) {
-      const timer = setTimeout(() => {
-        setShowToast(false)
-      }, 3000)
-      return () => clearTimeout(timer)
+      const timer = setTimeout(() => setShowToast(false), 3000);
+      return () => clearTimeout(timer);
     }
-  }, [showToast])
+  }, [showToast]);
 
   const handleTabChange = (tab: Tab) => {
-  setActiveTab(tab)
-  setStoreActiveTab(tab)
-
-  // If switching away from 'chats' and a user is selected, deselect them
-  if (activeTab === 'chats' && selectedUser) {
-    setSelectedUser(null)
-  }
-}
+    setActiveTab(tab);
+    setStoreActiveTab(tab);
+    if (activeTab === 'chats' && selectedUser) {
+      setSelectedUser(null);
+    }
+  };
 
   const filterList = (items: any[], searchFields: string[]) => {
-    if (!searchQuery.trim()) return items
+    if (!searchQuery.trim()) return items;
     return items.filter((item) =>
       searchFields.some((field) =>
         item[field]?.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    )
-  }
+    );
+  };
 
-  const filteredChats = filterList(chats || [], ['fullName'])
-  const filteredContacts = filterList(contacts || [], ['fullName'])
-  const filteredGroups = filterList(groups || [], ['name'])
+  const filteredChats = filterList(chats || [], ['fullName']);
+  const filteredContacts = filterList(contacts || [], ['fullName']);
+  const filteredGroups = filterList(groups || [], ['name']);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
 
     reader.onloadend = async () => {
-      const base64Image = reader.result as string
-      setSelectedImg(base64Image)
-      
-      try {
-        await updateProfile({ profilePic: base64Image })
-        // Success - show toast
-        setToastMessage('Profile picture updated successfully!')
-        setToastType('success')
-        setShowToast(true)
-      } catch (error) {
-        // Error - revert image and show error toast
-        setSelectedImg(authUser?.profilePic || null)
-        setToastMessage('Failed to update profile picture. Please try again.')
-        setToastType('error')
-        setShowToast(true)
-      }
-    }
-  }
+      const base64Image = reader.result as string;
+      setSelectedImg(base64Image);
 
-  // Get profile image with User icon fallback
-  const getProfileImage = () => {
-    const imageSrc = selectedImg || authUser?.profilePic
-    return imageSrc ? imageSrc : undefined
-  }
+      try {
+        await updateProfile({ profilePic: base64Image });
+        setToastMessage('Profile picture updated successfully!');
+        setToastType('success');
+        setShowToast(true);
+      } catch (error) {
+        setSelectedImg(authUser?.profilePic || null);
+        setToastMessage('Failed to update profile picture.');
+        setToastType('error');
+        setShowToast(true);
+      }
+    };
+  };
+
+  const getProfileImage = () => selectedImg || authUser?.profilePic;
 
   const handleLogout = () => {
     Swal.fire({
-      title: 'Are you sure?',
-      text: 'Do you want to log out?',
+      title: 'Log out?',
+      text: 'You will be signed out of your account.',
       icon: 'warning',
       showCancelButton: true,
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, log out!',
+      confirmButtonText: 'Log out',
       cancelButtonText: 'Cancel',
       background: '#1e1e1e',
+      color: '#F9FAFB',
       confirmButtonColor: '#06B6D4',
-      color: '#F9FAFB'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        logout();
+      cancelButtonColor: '#ef4444',
+      customClass: {
+        popup: 'border border-[#2a2a2a] rounded-xl',
       }
+    }).then((result) => {
+      if (result.isConfirmed) logout();
     });
   };
 
   return (
-    <div className="bg-[#121212] md:w-[360px] text-[#ffffff] h-screen flex flex-col">
+    <div className="bg-[#121212] md:w-96 text-[#ffffff] h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-center p-5 border-b border-[#2a2a2a]">
-        {/* AVATAR */}
-        <div className="avatar online">
+      <header className="flex items-center justify-between p-5 border-b border-[#2a2a2a]">
+        <div className="relative group">
           <button
-            className="size-14 rounded-full overflow-hidden cursor-pointer relative group disabled:cursor-not-allowed"
             onClick={() => !isUpdating && fileInputRef.current?.click()}
             disabled={isUpdating}
+            className="size-14 rounded-full overflow-hidden ring-2 ring-transparent focus:ring-[#00d9ff] transition-all duration-200"
+            aria-label="Change profile picture"
           >
             {isUpdating ? (
-              // Loading state
               <div className="size-full bg-[#1e1e1e] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00d9ff]"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#00d9ff] border-t-transparent"></div>
               </div>
             ) : getProfileImage() ? (
-              <img
-                src={getProfileImage()!}
-                alt="User image"
-                className="size-full object-cover"
-              />
+              <img src={getProfileImage()!} alt="Profile" className="size-full object-cover" />
             ) : (
               <div className="size-full bg-[#1e1e1e] flex items-center justify-center">
                 <User className="w-8 h-8 text-[#999999]" />
               </div>
             )}
-            
-            {!isUpdating && (
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <span className="text-white text-xs">Change</span>
-              </div>
-            )}
           </button>
+
+          {/* Camera Overlay */}
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full flex items-center justify-center pointer-events-none">
+            <Camera className="w-5 h-5 text-white" />
+          </div>
+
           <input
             type="file"
             accept="image/*"
@@ -202,39 +186,41 @@ const ChatSidebar = () => {
             disabled={isUpdating}
           />
         </div>
-        
-        <div className="flex gap-3 items-center">
-          <button 
-            className="p-1.5 hover:bg-[#1e1e1e] rounded-lg transition-colors cursor-pointer duration-200"
-          >
-            <Bell className="w-5 h-5 text-[#999999] hover:text-[#ffffff]" />
-          </button>
-          <button className="p-1.5 hover:bg-[#1e1e1e] rounded-lg transition-colors cursor-pointer duration-200">
-            <Settings className="w-5 h-5 text-[#999999] hover:text-[#ffffff]" />
-          </button>
-          <button 
-            className="p-1.5 hover:bg-[#1e1e1e] rounded-lg transition-colors cursor-pointer duration-200"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5 text-[#999999] hover:text-[#ffffff]" />
-          </button>
-        </div>
-      </div>
 
-      {/* Search Container */}
-      <div className="p-4 border-b border-[#2a2a2a] sticky top-0 bg-[#121212] z-10">
-        <div className="relative">
-          <Search className="absolute left-3 top-3.5 w-4 h-4 text-[#999999]" />
+        <div className="flex gap-1.5">
+          {[
+            { Icon: Bell, label: "Notifications" },
+            { Icon: Settings, label: "Settings" },
+            { Icon: LogOut, label: "Logout", onClick: handleLogout },
+          ].map(({ Icon, label, onClick }) => (
+            <button
+              key={label}
+              onClick={onClick}
+              aria-label={label}
+              className="p-2 rounded-lg hover:bg-[#1e1e1e] transition-all duration-200 group"
+            >
+              <Icon className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* Search */}
+      <div className="p-4 border-b border-[#2a2a2a] bg-[#121212] sticky top-0 z-20">
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999999] pointer-events-none" />
           <input
+            type="text"
             placeholder="Search chats, contacts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-3 w-full bg-[#1e1e1e] text-[#ffffff] border border-[#2a2a2a] rounded-lg py-2.5 outline-none placeholder:text-sm placeholder:text-[#999999] transition-colors cursor-pointer focus:border-[#00d9ff]"
+            className="w-full pl-10 pr-10 py-2.5 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl text-sm text-white placeholder-[#999999] focus:outline-none focus:border-[#00d9ff] focus:ring-2 focus:ring-[#00d9ff]/20 transition-all duration-200"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-3.5 p-0.5 hover:bg-[#2a2a2a] rounded transition-colors cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[#2a2a2a] transition-colors"
+              aria-label="Clear search"
             >
               <X className="w-4 h-4 text-[#999999]" />
             </button>
@@ -242,25 +228,30 @@ const ChatSidebar = () => {
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex justify-between border-b border-[#2a2a2a] p-3 px-4 bg-[#1e1e1e]/50">
+      {/* Tabs */}
+      <nav className="flex border-b border-[#2a2a2a] bg-[#121212]">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            className={`text-sm cursor-pointer transition-all py-2 px-3 rounded-lg font-medium ${
+            className={`flex-1 cursor-pointer flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-all duration-200 relative ${
               activeTab === tab.id
-                ? 'bg-[#00d9ff]/10 text-[#00d9ff] shadow-sm border border-[#00d9ff]/20'
-                : 'text-[#999999] hover:bg-[#2a2a2a]/50'
+                ? 'text-[#00d9ff]'
+                : 'text-[#999999] hover:text-white'
             }`}
+            aria-current={activeTab === tab.id ? 'page' : undefined}
           >
-            {tab.label}
+            {tab.icon}
+            <span>{tab.label}</span>
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#00d9ff]" />
+            )}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto bg-[#121212]">
         <TabContent
           isLoading={isLoading}
           activeTab={activeTab}
@@ -270,7 +261,7 @@ const ChatSidebar = () => {
         />
       </div>
 
-      {/* Toast Notification */}
+      {/* Toast */}
       <Toast
         show={showToast}
         message={toastMessage}
@@ -279,7 +270,7 @@ const ChatSidebar = () => {
         duration={3000}
       />
     </div>
-  )
-}
+  );
+};
 
-export default ChatSidebar
+export default ChatSidebar;
