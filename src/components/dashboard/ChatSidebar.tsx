@@ -146,10 +146,12 @@ const ChatSidebar = () => {
       text: 'Do you want to log out?',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
       confirmButtonText: 'Yes, log out!',
-      cancelButtonText: 'Cancel'
+      cancelButtonText: 'Cancel',
+      background: '#1e1e1e',
+      confirmButtonColor: '#06B6D4',
+      color: '#F9FAFB'
     }).then((result) => {
       if (result.isConfirmed) {
         logout();

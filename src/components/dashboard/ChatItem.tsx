@@ -39,25 +39,8 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   return (
     <div
       onClick={() => setSelectedUser(item)}
-      className="flex items-center gap-3 p-4 border-b border-[#2a2a2a] hover:bg-[#252525] transition-colors cursor-pointer duration-200 relative"
+      className="flex items-center gap-3 p-4 border-b border-[#2a2a2a] hover:bg-[#252525] transition-colors cursor-pointer duration-200 relative group"
     >
-      {/* Star button (top-right) */}
-      {isChat && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleStarChat(item._id);
-          }}
-          className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
-            isStarred
-              ? "bg-yellow-500 text-black"
-              : "bg-[#2a2a2a]/70 text-[#999] hover:bg-[#3a3a3a]"
-          }`}
-        >
-          <Star className={`w-4 h-4 ${isStarred ? "fill-current" : ""}`} />
-        </button>
-      )}
-
       <div className="w-12 h-12 rounded-full overflow-hidden bg-[#2a2a2a] flex items-center justify-center flex-shrink-0">
         {image ? (
           <img src={image} alt={displayName} className="w-full h-full object-cover" />
@@ -67,7 +50,12 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
       </div>
 
       <div className="flex flex-col justify-center flex-1 min-w-0">
-        <h3 className="font-semibold text-[#ffffff] truncate text-sm">{displayName}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-[#ffffff] truncate text-sm">{displayName}</h3>
+          {isChat && isStarred && (
+            <Star className="w-3 h-3 text-cyan-500 fill-cyan-500 flex-shrink-0" />
+          )}
+        </div>
         <div className="text-xs text-[#999999] truncate">
           {isChat
             ? getLastMessagePreview()
@@ -77,12 +65,34 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
         </div>
       </div>
 
-      {isChat && item.lastMessage && (
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <div className="text-xs text-[#999999]">{formatTime(item.lastMessage.createdAt)}</div>
-          <MessageStatus status={item.lastMessage.status} />
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        {isChat && item.lastMessage && (
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            <div className="text-xs text-[#999999]">{formatTime(item.lastMessage.createdAt)}</div>
+            <MessageStatus status={item.lastMessage.status} />
+          </div>
+        )}
+
+        {/* Star button - shows on hover */}
+        {isChat && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleStarChat(item._id);
+            }}
+            className={`opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity p-1.5 rounded hover:bg-[#3a3a3a] flex-shrink-0 ${
+              isStarred ? "opacity-100" : ""
+            }`}
+            aria-label={isStarred ? "Unstar chat" : "Star chat"}
+          >
+            <Star
+              className={`w-3.5 h-3.5 transition-colors ${
+                isStarred ? "text-cyan-500 fill-cyan-500" : "text-[#666]"
+              }`}
+            />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

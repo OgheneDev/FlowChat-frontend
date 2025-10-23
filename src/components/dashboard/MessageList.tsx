@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
   Reply,
-  Image as ImageIcon,
   CheckCheck,
   Edit2,
   Trash2,
@@ -25,15 +24,11 @@ interface MessageListProps {
   type: "user" | "contact" | "group";
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helper – union type for the events we handle (mouse + touch)      */
-/* ------------------------------------------------------------------ */
 type ContextEvent =
   | React.MouseEvent<HTMLDivElement>
   | React.TouchEvent<HTMLDivElement>;
 
 const MessageList = ({ isLoading, type }: MessageListProps) => {
-  /* -------------------------- Store hooks -------------------------- */
   const {
     privateMessages,
     groupMessages,
@@ -54,7 +49,6 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
 
   const messages = type === "group" ? groupMessages : privateMessages;
 
-  /* -------------------------- Local UI state -------------------------- */
   const [fullImage, setFullImage] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -67,22 +61,18 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  /* -------------------------- Scroll to bottom -------------------------- */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* -------------------------- Close context menu on click outside -------------------------- */
   useEffect(() => {
     const close = () => setContextMenu(null);
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
 
-  /* -------------------------- Helper: is message starred? -------------------------- */
   const isStarred = (msgId: string) => starredMessages.includes(msgId);
 
-  /* -------------------------- Reply -------------------------- */
   const startReply = (msg: any) => {
     setReplyingTo({
       _id: msg._id,
@@ -93,7 +83,6 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     setContextMenu(null);
   };
 
-  /* -------------------------- Edit -------------------------- */
   const handleEdit = (msg: any) => {
     setEditingMessageId(msg._id);
     setEditText(msg.text ?? "");
@@ -116,7 +105,6 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     setEditText("");
   };
 
-  /* -------------------------- Delete -------------------------- */
   const handleDelete = async (deleteType: "me" | "everyone") => {
     if (!deleteModal) return;
     try {
@@ -135,61 +123,59 @@ const MessageList = ({ isLoading, type }: MessageListProps) => {
     setContextMenu(null);
   };
 
-  /* -------------------------- Pin / Unpin -------------------------- */
-const getChatOrGroupId = (msg: any): { chatId?: string; groupId?: string } => {
-  if (type === "group") {
-    return { groupId: msg.groupId };
-  }
+  const getChatOrGroupId = (msg: any): { chatId?: string; groupId?: string } => {
+    if (type === "group") {
+      return { groupId: msg.groupId };
+    }
 
-  const chat = chats.find((c: any) =>
-    Array.isArray(c.participants) &&
-    c.participants.some((p: string | undefined) => p === authUser?._id)
-  );
-  return { chatId: chat?._id };
-};
+    const chat = chats.find((c: any) =>
+      Array.isArray(c.participants) &&
+      c.participants.some((p: string | undefined) => p === authUser?._id)
+    );
+    return { chatId: chat?._id };
+  };
 
-const handlePin = async (msg: any) => {
-  const ids = getChatOrGroupId(msg);
-  if (!ids.chatId && !ids.groupId) return;
+  const handlePin = async (msg: any) => {
+    const ids = getChatOrGroupId(msg);
+    if (!ids.chatId && !ids.groupId) return;
 
-  try {
-    await pinMessage({
-      messageId: msg._id,
-      ...(ids.chatId ? { chatId: ids.chatId } : {}),
-      ...(ids.groupId ? { groupId: ids.groupId } : {}),
-    });
-  } catch (e) {
-    console.error(e);
-  }
-  setContextMenu(null);
-};
+    try {
+      await pinMessage({
+        messageId: msg._id,
+        ...(ids.chatId ? { chatId: ids.chatId } : {}),
+        ...(ids.groupId ? { groupId: ids.groupId } : {}),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+    setContextMenu(null);
+  };
 
-const handleUnpin = async (msg: any) => {
-  const ids = getChatOrGroupId(msg);
-  if (!ids.chatId && !ids.groupId) return;
+  const handleUnpin = async (msg: any) => {
+    const ids = getChatOrGroupId(msg);
+    if (!ids.chatId && !ids.groupId) return;
 
-  try {
-    await unpinMessage({
-      messageId: msg._id,
-      ...(ids.chatId ? { chatId: ids.chatId } : {}),
-      ...(ids.groupId ? { groupId: ids.groupId } : {}),
-    });
-  } catch (e) {
-    console.error(e);
-  }
-  setContextMenu(null);
-};
+    try {
+      await unpinMessage({
+        messageId: msg._id,
+        ...(ids.chatId ? { chatId: ids.chatId } : {}),
+        ...(ids.groupId ? { groupId: ids.groupId } : {}),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+    setContextMenu(null);
+  };
 
-  /* -------------------------- Star / Un‑star -------------------------- */
   const handleStarToggle = async (msgId: string) => {
     try {
       await toggleStarMessage(msgId);
+      setContextMenu(null);
     } catch (e) {
       console.error(e);
     }
   };
 
-  /* -------------------------- Show context menu (mouse + long‑press) -------------------------- */
   const showContextMenu = (e: ContextEvent, msg: any) => {
     e.preventDefault();
 
@@ -206,7 +192,7 @@ const handleUnpin = async (msg: any) => {
     }
 
     const menuWidth = 200;
-    const menuHeight = 300;
+    const menuHeight = 350;
     const padding = 10;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
@@ -233,7 +219,6 @@ const handleUnpin = async (msg: any) => {
     document.addEventListener("touchend", cancel, { once: true });
   };
 
-  /* -------------------------- Skeleton -------------------------- */
   const MessageSkeleton = () => (
     <div className="flex gap-3 p-4 animate-pulse">
       <div className="w-9 h-9 rounded-full bg-[#2a2a2a]/50" />
@@ -244,7 +229,6 @@ const handleUnpin = async (msg: any) => {
     </div>
   );
 
-  /* -------------------------- Empty state -------------------------- */
   if (isLoading) {
     return (
       <div className="flex-1 overflow-y-auto py-4 px-2">
@@ -260,7 +244,11 @@ const handleUnpin = async (msg: any) => {
       <div className="flex-1 overflow-y-auto py-4 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-16 h-16 mx-auto rounded-full bg-[#2a2a2a] flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-[#666]" />
+            <svg className="w-8 h-8 text-[#666]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" strokeWidth="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5" strokeWidth="2"/>
+              <path d="M21 15l-5-5L5 21" strokeWidth="2"/>
+            </svg>
           </div>
           <div>
             <p className="text-sm text-[#999999] font-medium">No messages yet</p>
@@ -273,7 +261,6 @@ const handleUnpin = async (msg: any) => {
     );
   }
 
-  /* -------------------------- Render messages -------------------------- */
   return (
     <>
       <div className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth">
@@ -285,7 +272,6 @@ const handleUnpin = async (msg: any) => {
 
           const isOwn = senderIdValue === authUser?._id;
 
-          /* ---- Resolve sender name / avatar for non‑own messages ---- */
           let senderFullName: string | null = null;
           let senderProfileImage: string | null = null;
 
@@ -312,15 +298,15 @@ const handleUnpin = async (msg: any) => {
 
           const isEditing = editingMessageId === message._id;
 
-          /* ---- Is the message pinned? ---- */
           const target = type === "group"
-  ? groups.find((g) => g._id === message.groupId)
-  : chats.find((c: any) =>
-      Array.isArray(c.participants) && 
-      c.participants.some((p: string | undefined) => p === authUser?._id)
-    );
+            ? groups.find((g) => g._id === message.groupId)
+            : chats.find((c: any) =>
+                Array.isArray(c.participants) && 
+                c.participants.some((p: string | undefined) => p === authUser?._id)
+              );
 
           const isPinned = target?.pinnedMessages?.includes(message._id) ?? false;
+          const starred = isStarred(message._id);
 
           return (
             <React.Fragment key={message._id}>
@@ -336,13 +322,11 @@ const handleUnpin = async (msg: any) => {
                 </div>
               )}
 
-              {/* ---------- Message bubble ---------- */}
               <div
                 className={`flex gap-3 group ${isOwn ? "flex-row-reverse" : ""}`}
                 onContextMenu={(e) => isOwn && showContextMenu(e, message)}
                 onTouchStart={(e) => isOwn && handleTouchStart(e, message)}
               >
-                {/* Avatar (only for others) */}
                 {!isOwn && (
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-[#00d9ff]/20 to-[#0099cc]/20 flex-shrink-0 border border-[#2a2a2a]">
                     {senderProfileImage ? (
@@ -359,7 +343,6 @@ const handleUnpin = async (msg: any) => {
                   </div>
                 )}
 
-                {/* Content */}
                 <div className="flex flex-col gap-1 max-w-[75%] md:max-w-[65%]">
                   {senderName && (
                     <span className="text-xs text-[#00d9ff] font-medium ml-1">
@@ -374,31 +357,12 @@ const handleUnpin = async (msg: any) => {
                         : "bg-[#2a2a2a] shadow-md"
                     }`}
                   >
-                    {/* Pinned indicator */}
                     {isPinned && (
-                      <div className="absolute -top-2 -right-2 bg-[#00d9ff] text-black text-xs rounded-full p-1">
+                      <div className="absolute -top-2 -right-2 bg-[#00d9ff] text-black text-xs rounded-full p-1 z-10">
                         <Pin className="w-3 h-3" />
                       </div>
                     )}
 
-                    {/* Star button (hover) */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStarToggle(message._id);
-                      }}
-                      className={`absolute top-2 right-2 p-1 rounded-full transition-all ${
-                        isStarred(message._id)
-                          ? "bg-yellow-500 text-black"
-                          : "bg-[#2a2a2a]/70 text-[#999] hover:bg-[#3a3a3a]"
-                      }`}
-                    >
-                      <Star
-                        className={`w-4 h-4 ${isStarred(message._id) ? "fill-current" : ""}`}
-                      />
-                    </button>
-
-                    {/* Reply preview */}
                     {message.replyTo && (
                       <div
                         className={`px-3 py-2 border-l-4 m-2 mb-1 rounded-md ${
@@ -418,7 +382,6 @@ const handleUnpin = async (msg: any) => {
                       </div>
                     )}
 
-                    {/* Editing mode */}
                     {isEditing ? (
                       <div className="p-2 flex items-center gap-1">
                         <input
@@ -438,7 +401,6 @@ const handleUnpin = async (msg: any) => {
                       </div>
                     ) : (
                       <>
-                        {/* Image */}
                         {message.image && (
                           <img
                             src={message.image}
@@ -448,7 +410,6 @@ const handleUnpin = async (msg: any) => {
                           />
                         )}
 
-                        {/* Text */}
                         {message.text && (
                           <p
                             className={`text-sm leading-relaxed whitespace-pre-wrap px-4 py-2.5 ${
@@ -468,12 +429,14 @@ const handleUnpin = async (msg: any) => {
                     )}
                   </div>
 
-                  {/* Timestamp + status */}
                   <div
-                    className={`flex items-center gap-1 px-1 ${
+                    className={`flex items-center gap-1.5 px-1 ${
                       isOwn ? "self-end" : "self-start"
                     }`}
                   >
+                    {starred && (
+                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                    )}
                     <span className="text-xs text-[#666]">
                       {formatTime(message.createdAt)}
                     </span>
@@ -490,7 +453,6 @@ const handleUnpin = async (msg: any) => {
         <div ref={messagesEndRef} className="scroll-anchor" />
       </div>
 
-      {/* -------------------------- Context menu -------------------------- */}
       {contextMenu && (
         <div
           ref={contextMenuRef}
@@ -515,6 +477,18 @@ const handleUnpin = async (msg: any) => {
           )}
 
           <button
+            onClick={() => handleStarToggle(contextMenu.message._id)}
+            className="w-full px-4 py-2 text-left hover:bg-[#3a3a3a] flex items-center gap-2 text-white transition-colors"
+          >
+            <Star
+              className={`w-4 h-4 ${
+                isStarred(contextMenu.message._id) ? "fill-yellow-500 text-yellow-500" : ""
+              }`}
+            />
+            {isStarred(contextMenu.message._id) ? "Unstar" : "Star"}
+          </button>
+
+          <button
             onClick={() => openDeleteModal(contextMenu.message)}
             className="w-full px-4 py-2 text-left hover:bg-[#3a3a3a] flex items-center gap-2 text-red-400 transition-colors"
             disabled={isDeletingMessage}
@@ -522,7 +496,6 @@ const handleUnpin = async (msg: any) => {
             <Trash2 className="w-4 h-4" /> Delete
           </button>
 
-          {/* Pin / Unpin */}
           {(() => {
             const msg = contextMenu.message;
             const { chatId, groupId } = getChatOrGroupId(msg);
@@ -566,7 +539,6 @@ const handleUnpin = async (msg: any) => {
         </div>
       )}
 
-      {/* -------------------------- Delete Modal -------------------------- */}
       {deleteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
           <div className="bg-[#2a2a2a] rounded-2xl shadow-2xl border border-[#3a3a3a] p-6 max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200">

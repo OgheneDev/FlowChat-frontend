@@ -52,7 +52,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
           <div className="flex items-center gap-3 flex-1">
             {/* Back button with hover effect */}
             <button 
-              className="group p-2 hover:bg-[#2a2a2a] rounded-xl transition-all duration-200 active:scale-95"
+              className="group p-2 hover:bg-[#2a2a2a] cursor-pointer rounded-xl transition-all duration-200 active:scale-95"
               onClick={handleBack}
             >
               <ArrowLeft className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
