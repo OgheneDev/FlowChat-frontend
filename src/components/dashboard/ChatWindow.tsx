@@ -102,21 +102,6 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            {type !== 'group' && (
-              <>
-                <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
-                  <Phone className="w-5 h-5 text-[#999] group-hover:text-[#00d9ff] transition-colors" />
-                </button>
-                <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
-                  <Video className="w-5 h-5 text-[#999] group-hover:text-[#00d9ff] transition-colors" />
-                </button>
-              </>
-            )}
-            <button className="p-2.5 rounded-xl hover:bg-[#2a2a2a] transition-all group">
-              <MoreVertical className="w-5 h-5 text-[#999] group-hover:text-white transition-colors" />
-            </button>
-          </div>
         </div>
         <div className="h-px bg-gradient-to-r from-transparent via-[#00d9ff]/30 to-transparent" />
       </header>
