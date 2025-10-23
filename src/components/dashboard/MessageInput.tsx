@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Send, Image, X } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Send, Image, X, Reply } from "lucide-react";
 import { useChatStore } from "@/stores/useChatStore";
 
 interface MessageInputProps {
@@ -22,7 +22,8 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const [text, setText] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
-  const [replyTo, setReplyTo] = useState<string>(""); // messageId we are replying to
+  const [replyTo, setReplyTo] = useState<string>("");
+  const [replySenderName, setReplySenderName] = useState<string>("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,18 +31,78 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     sendPrivateMessage,
     sendGroupMessage,
     isSendingMessage,
-    replyingTo, // <-- comes from store (set when user swipes a message)
+    replyingTo,
     clearReply,
+    contacts,
+    groups,
+    authUser,
   } = useChatStore() as any;
 
-  // -----------------------------------------------------------------
-  // 1. Image picker
-  // -----------------------------------------------------------------
+  /* -----------------------------------------------------------------
+   * Resolve sender name for the reply preview
+   * ----------------------------------------------------------------- */
+  useEffect(() => {
+    if (!replyingTo) {
+      setReplySenderName("");
+      return;
+    }
+
+    // If it's the current user's message
+    const senderId = replyingTo.senderId?._id ?? replyingTo.senderId;
+    if (senderId === authUser?._id) {
+      setReplySenderName("You");
+      return;
+    }
+
+    // If senderId is an object → use its fullName
+    if (replyingTo.senderId?.fullName) {
+      setReplySenderName(replyingTo.senderId.fullName);
+      return;
+    }
+
+    // If senderId is just a string → look it up
+    if (!senderId) {
+      setReplySenderName("Unknown");
+      return;
+    }
+
+    // Search contacts (private chats)
+    const contact = contacts?.find((c: any) => c._id === senderId);
+    if (contact?.fullName) {
+      setReplySenderName(contact.fullName);
+      return;
+    }
+
+    // Search groups
+    const group = groups?.find((g: any) => g._id === receiverId);
+    const member = group?.members?.find((m: any) => m._id === senderId);
+    if (member?.fullName) {
+      setReplySenderName(member.fullName);
+      return;
+    }
+
+    // Fallback
+    setReplySenderName("Unknown");
+  }, [replyingTo, contacts, groups, receiverId, authUser]);
+
+  /* -----------------------------------------------------------------
+   * Sync store → local reply state
+   * ----------------------------------------------------------------- */
+  React.useEffect(() => {
+    if (replyingTo) {
+      setReplyTo(replyingTo._id);
+    } else {
+      setReplyTo("");
+    }
+  }, [replyingTo]);
+
+  /* -----------------------------------------------------------------
+   * Image handling
+   * ----------------------------------------------------------------- */
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // optional: size limit (e.g. 5 MB)
     if (file.size > 5 * 1024 * 1024) {
       alert("Image must be < 5 MB");
       return;
@@ -58,23 +119,15 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // -----------------------------------------------------------------
-  // 2. Reply handling (store gives us the message we are replying to)
-  // -----------------------------------------------------------------
-  React.useEffect(() => {
-    if (replyingTo) {
-      setReplyTo(replyingTo._id);
-    }
-  }, [replyingTo]);
-
   const cancelReply = () => {
     setReplyTo("");
+    setReplySenderName("");
     clearReply();
   };
 
-  // -----------------------------------------------------------------
-  // 3. Send
-  // -----------------------------------------------------------------
+  /* -----------------------------------------------------------------
+   * Send
+   * ----------------------------------------------------------------- */
   const handleSend = async () => {
     if (isSendingMessage) return;
     if (!text.trim() && !imageFile) return;
@@ -103,32 +156,36 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
   return (
     <div className="p-4 border-t border-[#2a2a2a] bg-[#1e1e1e]">
-      {/* ---------- REPLY PREVIEW ---------- */}
+      {/* ---------- REPLY PREVIEW (WhatsApp Style) ---------- */}
       {replyTo && replyingTo && (
-        <div className="mb-2 p-2 bg-[#2a2a2a] rounded-lg flex items-center gap-2 text-sm text-gray-300">
-          <div className="flex-1 truncate">
-            <span className="font-medium text-[#00d9ff]">
-              {replyingTo.senderId?.fullName ?? "Unknown"}
-            </span>
-            : {replyingTo.text || "(image)"}
+        <div className="mb-3 pl-4 pr-2 py-2.5 bg-[#2a2a2a]/60 rounded-lg border-l-4 border-[#00d9ff]">
+          <div className="flex items-start gap-3">
+            <Reply className="w-4 h-4 text-[#00d9ff] mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-[#00d9ff] font-semibold mb-0.5">
+                Replying to {replySenderName}
+              </p>
+              <p className="text-xs text-[#999] truncate">
+                {replyingTo.text || "(Image)"}
+              </p>
+            </div>
+            <button 
+              onClick={cancelReply} 
+              className="p-1 cursor-pointer hover:bg-[#333] rounded transition-colors"
+            >
+              <X className="w-4 h-4 text-[#999]" />
+            </button>
           </div>
-          <button onClick={cancelReply} className="p-1 hover:bg-[#333] rounded">
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
 
       {/* ---------- IMAGE PREVIEW ---------- */}
       {imagePreview && (
         <div className="mb-2 relative inline-block">
-          <img
-            src={imagePreview}
-            alt="preview"
-            className="max-h-32 rounded-lg"
-          />
+          <img src={imagePreview} alt="preview" className="max-h-32 rounded-lg" />
           <button
             onClick={removeImage}
-            className="absolute cursor-pointer top-1 right-1 p-1 bg-black/70 rounded-full"
+            className="absolute cursor-pointer top-1 right-1 p-1 bg-black/70 rounded-full hover:bg-black transition-colors"
           >
             <X className="w-4 h-4 text-white" />
           </button>
@@ -155,7 +212,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2 outline-none"
+          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm"
           onKeyPress={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
         />
 
@@ -163,7 +220,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
         <button
           onClick={handleSend}
           disabled={isSendingMessage || (!text.trim() && !imageFile)}
-          className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+          className="p-2 hover:bg-[#2a2a2a] rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="w-5 h-5 text-[#00d9ff]" />
         </button>

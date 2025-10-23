@@ -62,9 +62,9 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
             <div className="relative">
               <div className="w-11 h-11 rounded-full overflow-hidden bg-gradient-to-br from-[#00d9ff] to-[#0099cc] p-0.5">
                 <div className="w-full h-full rounded-full overflow-hidden bg-[#2a2a2a] flex items-center justify-center">
-                  {selectedUser.profilePicture ? (
+                  {selectedUser.profilePic ? (
                     <img 
-                      src={selectedUser.profilePicture} 
+                      src={selectedUser.profilePic} 
                       alt={selectedUser.fullName} 
                       className="w-full h-full object-cover"
                     />

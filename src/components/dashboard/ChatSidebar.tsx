@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/useAuthStore'
 import { Bell, Settings, LogOut, Search, X, User, Camera } from 'lucide-react'
 import { TabContent } from './TabContent'
 import { Toast } from '../ui/toast'
+import Swal from 'sweetalert2' 
 
 type Tab = "chats" | "contacts" | "groups"
 
@@ -84,9 +85,14 @@ const ChatSidebar = () => {
   }, [showToast])
 
   const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab)
-    setStoreActiveTab(tab)
+  setActiveTab(tab)
+  setStoreActiveTab(tab)
+
+  // If switching away from 'chats' and a user is selected, deselect them
+  if (activeTab === 'chats' && selectedUser) {
+    setSelectedUser(null)
   }
+}
 
   const filterList = (items: any[], searchFields: string[]) => {
     if (!searchQuery.trim()) return items
@@ -133,6 +139,23 @@ const ChatSidebar = () => {
     const imageSrc = selectedImg || authUser?.profilePic
     return imageSrc ? imageSrc : undefined
   }
+
+  const handleLogout = () => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'Do you want to log out?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, log out!',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        logout();
+      }
+    });
+  };
 
   return (
     <div className="bg-[#121212] md:w-[360px] text-[#ffffff] h-screen flex flex-col">
@@ -181,7 +204,6 @@ const ChatSidebar = () => {
         <div className="flex gap-3 items-center">
           <button 
             className="p-1.5 hover:bg-[#1e1e1e] rounded-lg transition-colors cursor-pointer duration-200"
-            onClick={logout}
           >
             <Bell className="w-5 h-5 text-[#999999] hover:text-[#ffffff]" />
           </button>
@@ -190,7 +212,7 @@ const ChatSidebar = () => {
           </button>
           <button 
             className="p-1.5 hover:bg-[#1e1e1e] rounded-lg transition-colors cursor-pointer duration-200"
-            onClick={logout}
+            onClick={handleLogout}
           >
             <LogOut className="w-5 h-5 text-[#999999] hover:text-[#ffffff]" />
           </button>
