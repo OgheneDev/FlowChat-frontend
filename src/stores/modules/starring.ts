@@ -51,7 +51,7 @@ export const useStarringStore = create<StarringState>((set, get) => ({
     if (!chatPartnerId && !groupId) {
       useToastStore.getState().showToast("Chat partner or group ID is required", "error");
       throw new Error("chatPartnerId or groupId is required");
-    }
+    } 
 
     const idToToggle = chatPartnerId ?? groupId!;
     const wasStarred = get().starredChats.includes(idToToggle);

@@ -111,3 +111,36 @@
 .status-offline {
   @apply w-3 h-3 bg-gray-400 rounded-full;
 }
+
+/* Message highlight animation */
+.message-highlight {
+  animation: highlight-pulse 3s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgba(0, 217, 255, 0.1);
+    transform: scale(1);
+  }
+  15% {
+    background-color: rgba(0, 217, 255, 0.2);
+    transform: scale(1.02);
+  }
+  30% {
+    background-color: rgba(0, 217, 255, 0.15);
+    transform: scale(1.01);
+  }
+  50% {
+    background-color: rgba(0, 217, 255, 0.1);
+    transform: scale(1);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+/* Ensure smooth transitions for message items */
+.message-item {
+  transition: all 0.3s ease;
+}

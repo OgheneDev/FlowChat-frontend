@@ -68,6 +68,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const { data } = await axiosInstance.get(`/messages/${id}`);
+      console.log("Messages:", data)
       set({ privateMessages: data });
       return data;
     } catch (error: any) {
@@ -116,29 +117,23 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   },
 
   editMessage: async (messageId: string, data: EditMessageData) => {
-    const { text } = data;
-    set({ isEditingMessage: true });
+  const { text } = data;
+  set({ isEditingMessage: true });
 
-    const optimisticUpdater = (messages: Message[]) =>
-      messages.map((m) =>
-        m._id === messageId ? { ...m, text, editedAt: new Date().toISOString() } : m
-      );
-
-    set((state) => ({
-      privateMessages: optimisticUpdater(state.privateMessages),
-    }));
-
-    let updatedMessage: Message;
-    try {
-      const { data: res } = await axiosInstance.put(`/messages/edit/${messageId}`, data);
-      updatedMessage = res;
-    } catch (error: any) {
-      set((state) => ({ privateMessages: state.privateMessages })); // revert
-      throw error;
-    } finally {
-      set({ isEditingMessage: false });
-    }
-
+  // Store original message for rollback
+  const originalMessage = get().privateMessages.find(m => m._id === messageId);
+  
+  // Optimistic update
+  set((state) => ({
+    privateMessages: state.privateMessages.map((m) =>
+      m._id === messageId ? { ...m, text, editedAt: new Date().toISOString() } : m
+    ),
+  }));
+  
+  try {
+    const { data: updatedMessage } = await axiosInstance.put(`/messages/edit/${messageId}`, data);
+    
+    // Update with server response
     set((state) => ({
       privateMessages: state.privateMessages.map((m) =>
         m._id === messageId ? updatedMessage : m
@@ -146,7 +141,20 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     }));
 
     return updatedMessage;
-  },
+  } catch (error: any) {
+    // Revert optimistic update on error
+    if (originalMessage) {
+      set((state) => ({ 
+        privateMessages: state.privateMessages.map((m) =>
+          m._id === messageId ? originalMessage : m
+        )
+      }));
+    }
+    throw error;
+  } finally {
+    set({ isEditingMessage: false });
+  }
+},
 
   addIncomingMessage: (msg: Message) => {
     set((state) => ({
