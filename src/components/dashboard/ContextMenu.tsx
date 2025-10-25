@@ -1,6 +1,7 @@
-import React from "react";
+import React, {useState} from "react";
 import { Reply, Edit2, Star, Trash2, Copy, Forward, Download, Pin, PinOff } from "lucide-react";
 import { usePinningStore } from "@/stores";
+import { Toast } from "../ui/toast";
 
 interface ContextMenuProps {
   contextMenu: { x: number; y: number; message: any };
@@ -32,13 +33,42 @@ const ContextMenu = ({
   selectedUser,
 }: ContextMenuProps) => {
   const { togglePinMessage, isMessagePinned, isPinning } = usePinningStore();
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   
   const isPinned = isMessagePinned(message._id);
   const isPinningThis = isPinning === message._id;
+  
+  // Check if message has text content that can be copied
+  const hasCopyableText = message.text && message.text.trim().length > 0;
 
-  const handleCopy = () => {
-    if (message.text) {
-      navigator.clipboard.writeText(message.text); 
+  const handleCopy = async () => {
+    if (!hasCopyableText) return;
+    
+    try {
+      await navigator.clipboard.writeText(message.text);
+      setToastMessage('Message copied to clipboard!');
+      setToastType("success");
+      setShowToast(true);
+      console.log("Text copied to clipboard", message.text);
+    } catch (err) {
+      setToastMessage("Failed to copy to clipboard!");
+      setToastType("error");
+      setShowToast(true);
+      console.error("Failed to copy text: ", err);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = message.text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard (fallback)");
+      } catch (fallbackErr) {
+        console.error("Fallback copy failed: ", fallbackErr);
+      }
+      document.body.removeChild(textArea);
     }
   };
 
@@ -51,7 +81,9 @@ const ContextMenu = ({
       const link = document.createElement("a");
       link.href = message.image;
       link.download = `image-${message._id}.jpg`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -101,7 +133,7 @@ const ContextMenu = ({
         <span>{isPinned ? "Unpin" : "Pin"}</span>
       </button>
 
-      {isOwn && contextMenu.message.text && (
+      {isOwn && hasCopyableText && (
         <button
           onClick={() => onEdit(contextMenu.message)}
           className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
@@ -158,14 +190,16 @@ const ContextMenu = ({
 
       <div className="border-t border-[#3a3a3a] my-1 mx-2" />
 
-      <button
-        onClick={handleCopy}
-        className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-        disabled={!message.text}
-      >
-        <Copy className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
-        <span>Copy</span>
-      </button>
+      {/* Copy button - only show if message has text */}
+      {hasCopyableText && (
+        <button
+          onClick={handleCopy}
+          className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
+        >
+          <Copy className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
+          <span>Copy</span>
+        </button>
+      )}
 
       <button
         onClick={handleForward}
@@ -184,6 +218,15 @@ const ContextMenu = ({
           <span>Download</span>
         </button>
       )}
+
+      {/* Toast */}
+            <Toast
+              show={showToast}
+              message={toastMessage}
+              type={toastType}
+              onClose={() => setShowToast(false)}
+              duration={3000}
+            />
     </div>
   );
 };
