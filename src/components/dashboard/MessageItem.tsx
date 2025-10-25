@@ -97,8 +97,14 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       setDeleteModal(null);
     };
 
+    // FIXED: Single function declaration
     const openDeleteModal = (msg: any, deleteType: "me" | "everyone") => {
       setDeleteModal({ message: msg, deleteType });
+    };
+
+    // FIXED: Use this function for context menu delete
+    const handleContextMenuDelete = (msg: any, deleteType: "me" | "everyone") => {
+      openDeleteModal(msg, deleteType);
     };
 
     const handleStarToggle = async (msgId: string) => {
@@ -108,6 +114,30 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
         console.error(e);
       }
     };
+
+    // FIXED: Move deleted message check to the beginning of component render
+    if (message.isDeleted && message.text === "You deleted this message") {
+      return (
+        <div
+          ref={ref}
+          className={`flex gap-3 group transition-all duration-200 ${
+            isOwn ? "flex-row-reverse" : ""
+          }`}
+        >
+          <div className="flex flex-col gap-1 max-w-[78%] md:max-w-[65%]">
+            <div className="relative rounded-2xl overflow-hidden transition-all duration-300 bg-[#1f1f1f] shadow-lg border border-[#2a2a2a] opacity-70">
+              <p className="px-4 py-3 text-sm leading-relaxed text-gray-400 italic">
+                {message.text}
+              </p>
+            </div>
+            <div className={`flex items-center gap-2 px-1 text-xs text-[#666] ${isOwn ? "justify-end" : "justify-start"}`}>
+              <span>{formatTime(message.createdAt)}</span>
+              {isOwn && <CheckCheck className="w-4 h-4 text-[#00d9ff] opacity-80" />}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <>
@@ -161,7 +191,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
                 <div
                   className={`px-3 py-2.5 m-2 mb-1 rounded-lg border-l-4 ${
                     isOwn ? "bg-white/10 border-white/40" : "bg-[#2a2a2a]/50 border-[#00d9ff]/50"
-                  } backdrop-blur-sm`}
+                  } backdrop-blur-sm"`}
                 >
                   <div className="flex items-center gap-2 text-xs font-medium">
                     <Reply className="w-3 h-3 text-[#00d9ff]" />
@@ -256,7 +286,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             onReply={startReply}
             onEdit={handleEdit}
             onStarToggle={handleStarToggle}
-            onDelete={openDeleteModal}
+            onDelete={handleContextMenuDelete} // FIXED: Use handleContextMenuDelete
             isSendingMessage={isSendingMessage}
             isOwn={isOwn}
             type={type}

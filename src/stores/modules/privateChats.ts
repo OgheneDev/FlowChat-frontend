@@ -90,31 +90,47 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
       throw new Error(error?.response?.data?.message || "Error sending message");
     } finally {
       set({ isSendingMessage: false });
-    }
+    } 
   },
 
   deleteMessage: async (data: DeleteMessageData) => {
-    const { messageId } = data;
-    set({ isDeletingMessage: true });
+  const { messageId, deleteType } = data;
+  set({ isDeletingMessage: true });
 
-    const optimisticUpdater = (messages: Message[]) =>
-      messages.map((m) =>
-        m._id === messageId ? { ...m, isDeleted: true, text: "[Deleted]" } : m
+  // Different optimistic updates based on delete type
+  const optimisticUpdater = (messages: Message[]) => {
+    if (deleteType === "me") {
+      // Remove completely for "delete for me"
+      return messages.filter(m => m._id !== messageId);
+    } else {
+      // Show "You deleted this message" for "delete for everyone"
+      return messages.map(m =>
+        m._id === messageId 
+          ? { 
+              ...m, 
+              isDeleted: true, 
+              text: "You deleted this message",
+              image: null // Remove image if it exists
+            } 
+          : m
       );
-
-    set((state) => ({
-      privateMessages: optimisticUpdater(state.privateMessages),
-    }));
-
-    try {
-      await axiosInstance.delete("/messages/delete", { data });
-    } catch (error: any) {
-      set((state) => ({ privateMessages: state.privateMessages })); // revert
-      throw error;
-    } finally {
-      set({ isDeletingMessage: false });
     }
-  },
+  };
+
+  set((state) => ({
+    privateMessages: optimisticUpdater(state.privateMessages),
+  }));
+
+  try {
+    await axiosInstance.delete("/messages/delete", { data });
+  } catch (error: any) {
+    // Revert on error - you might want to implement proper revert logic
+    set((state) => ({ privateMessages: state.privateMessages }));
+    throw error;
+  } finally {
+    set({ isDeletingMessage: false });
+  }
+},
 
   editMessage: async (messageId: string, data: EditMessageData) => {
   const { text } = data;

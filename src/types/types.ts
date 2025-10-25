@@ -11,7 +11,7 @@ export interface Message {
     senderName?: string
     createdAt: string
     status: 'sent' | 'delivered' | 'read'
-    image?: string
+    image?: string | null
     replyTo?: string
 }
 

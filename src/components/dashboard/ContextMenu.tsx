@@ -123,14 +123,38 @@ const ContextMenu = ({
         <span>{isStarred ? "Unstar" : "Star"}</span>
       </button>
 
-      <button
-        onClick={() => onDelete(contextMenu.message, isOwn ? "everyone" : "me")}
-        className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
-        disabled={isSendingMessage}
-      >
-        <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-        <span>{isOwn ? "Delete" : "Delete for Me"}</span>
-      </button>
+      {/* Delete Options */}
+      {isOwn ? (
+        // For own messages: Show both delete options
+        <>
+          <button
+            onClick={() => onDelete(contextMenu.message, "me")}
+            className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
+            disabled={isSendingMessage}
+          >
+            <Trash2 className="w-4 h-4 text-gray-400 group-hover:scale-110 transition-transform" />
+            <span>Delete for Me</span>
+          </button>
+          <button
+            onClick={() => onDelete(contextMenu.message, "everyone")}
+            className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
+            disabled={isSendingMessage}
+          >
+            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            <span>Delete for Everyone</span>
+          </button>
+        </>
+      ) : (
+        // For others' messages: Only show "Delete for Me"
+        <button
+          onClick={() => onDelete(contextMenu.message, "me")}
+          className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
+          disabled={isSendingMessage}
+        >
+          <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          <span>Delete for Me</span>
+        </button>
+      )}
 
       <div className="border-t border-[#3a3a3a] my-1 mx-2" />
 

@@ -15,7 +15,7 @@ interface User {
 interface Message {
   _id: string;
   text?: string;
-  image?: string;
+  image?: string | null;
   senderId: User | string;
   receiverId?: string;
   groupId?: string;
@@ -127,59 +127,64 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
   /* ────── Delete Message (Optimistic) ────── */
   deleteMessage: async (data: DeleteMessageData) => {
-    const { messageId } = data;
-    set({ isDeletingMessage: true });
+  const { messageId, deleteType } = data;
+  set({ isDeletingMessage: true });
 
-    const optimisticUpdater = (messages: Message[]) =>
-      messages.map((m) =>
-        m._id === messageId ? { ...m, isDeleted: true, text: "[Deleted]" } : m
-      );
-
-    set((state) => ({
-      groupMessages: optimisticUpdater(state.groupMessages),
-    }));
-
-    try {
-      await axiosInstance.delete("/messages/delete", { data });
-    } catch (error: any) {
-      // Revert on error
-      set((state) => ({ groupMessages: state.groupMessages }));
-      throw new Error(error?.response?.data?.message || "Failed to delete message");
-    } finally {
-      set({ isDeletingMessage: false });
-    }
-  },
-
-  /* ────── Edit Message (Optimistic) ────── */
-  editMessage: async (messageId: string, data: EditMessageData) => {
-    const { text } = data;
-    set({ isEditingMessage: true });
-
-    const optimisticUpdater = (messages: Message[]) =>
-      messages.map((m) =>
-        m._id === messageId
-          ? { ...m, text, editedAt: new Date().toISOString() }
+  const optimisticUpdater = (messages: Message[]) => {
+    if (deleteType === "me") {
+      return messages.filter(m => m._id !== messageId);
+    } else {
+      return messages.map(m =>
+        m._id === messageId 
+          ? { 
+              ...m, 
+              isDeleted: true, 
+              text: "You deleted this message",
+              image: null
+            } 
           : m
       );
-
-    set((state) => ({
-      groupMessages: optimisticUpdater(state.groupMessages),
-    }));
-
-    let updatedMessage: Message;
-    try {
-      const { data: res } = await axiosInstance.put(
-        `/messages/edit/${messageId}`,
-        data
-      );
-      updatedMessage = res;
-    } catch (error: any) {
-      set((state) => ({ groupMessages: state.groupMessages }));
-      throw new Error(error?.response?.data?.message || "Failed to edit message");
-    } finally {
-      set({ isEditingMessage: false });
     }
+  };
 
+  set((state) => ({
+    groupMessages: optimisticUpdater(state.groupMessages),
+  }));
+
+  try {
+    await axiosInstance.delete("/messages/delete", { data });
+  } catch (error: any) {
+    set((state) => ({ groupMessages: state.groupMessages }));
+    throw new Error(error?.response?.data?.message || "Failed to delete message");
+  } finally {
+    set({ isDeletingMessage: false });
+  }
+},
+
+  /* ────── Edit Message (Optimistic) ────── */
+ editMessage: async (messageId: string, data: EditMessageData) => {
+  const { text } = data;
+  set({ isEditingMessage: true });
+
+  // Store original message for proper rollback
+  const originalMessage = get().groupMessages.find(m => m._id === messageId);
+  
+  // Optimistic update
+  set((state) => ({
+    groupMessages: state.groupMessages.map((m) =>
+      m._id === messageId
+        ? { ...m, text, editedAt: new Date().toISOString() }
+        : m
+    ),
+  }));
+
+  try {
+    const { data: updatedMessage } = await axiosInstance.put(
+      `/messages/edit/${messageId}`,
+      data
+    );
+    
+    // Update with server response
     set((state) => ({
       groupMessages: state.groupMessages.map((m) =>
         m._id === messageId ? updatedMessage : m
@@ -187,5 +192,18 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     }));
 
     return updatedMessage;
-  },
+  } catch (error: any) {
+    // Revert optimistic update properly
+    if (originalMessage) {
+      set((state) => ({ 
+        groupMessages: state.groupMessages.map((m) =>
+          m._id === messageId ? originalMessage : m
+        )
+      }));
+    }
+    throw new Error(error?.response?.data?.message || "Failed to edit message");
+  } finally {
+    set({ isEditingMessage: false });
+  }
+},
 }));
