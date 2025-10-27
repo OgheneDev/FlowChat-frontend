@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, { useState } from "react";
 import { Reply, Edit2, Star, Trash2, Copy, Forward, Download, Pin, PinOff } from "lucide-react";
 import { usePinningStore } from "@/stores";
 import { Toast } from "../ui/toast";
@@ -11,7 +11,9 @@ interface ContextMenuProps {
   onReply: (msg: any) => void;
   onEdit: (msg: any) => void;
   onStarToggle: (msgId: string) => void;
-  onDelete: (msg: any, deleteType: "me" | "everyone") => void;
+  onDelete: (msg: any, deleteType?: "me" | "everyone") => void;
+  onForward: (msg: any) => void;
+  onClose: () => void;
   isSendingMessage: boolean;
   isOwn: boolean;
   type: "user" | "contact" | "group";
@@ -27,6 +29,8 @@ const ContextMenu = ({
   onEdit,
   onStarToggle,
   onDelete,
+  onForward,
+  onClose,
   isSendingMessage,
   isOwn,
   type,
@@ -40,8 +44,33 @@ const ContextMenu = ({
   const isPinned = isMessagePinned(message._id);
   const isPinningThis = isPinning === message._id;
   
-  // Check if message has text content that can be copied
   const hasCopyableText = message.text && message.text.trim().length > 0;
+
+  // Handler functions
+  const handleReply = () => {
+    onReply(contextMenu.message);
+    onClose();
+  };
+
+  const handleEdit = () => {
+    onEdit(contextMenu.message);
+    onClose();
+  };
+
+  const handleStarToggle = () => {
+    onStarToggle(contextMenu.message._id);
+    onClose();
+  };
+
+  const handleDelete = (deleteType?: "me" | "everyone") => {
+    onDelete(contextMenu.message, deleteType);
+    onClose();
+  };
+
+  const handleForward = () => {
+    onForward(contextMenu.message);
+    onClose();
+  };
 
   const handleCopy = async () => {
     if (!hasCopyableText) return;
@@ -51,29 +80,29 @@ const ContextMenu = ({
       setToastMessage('Message copied to clipboard!');
       setToastType("success");
       setShowToast(true);
-      console.log("Text copied to clipboard", message.text);
+      onClose();
     } catch (err) {
       setToastMessage("Failed to copy to clipboard!");
       setToastType("error");
       setShowToast(true);
       console.error("Failed to copy text: ", err);
-      // Fallback for older browsers
+      
+      // Fallback copy method
       const textArea = document.createElement("textarea");
       textArea.value = message.text;
       document.body.appendChild(textArea);
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard (fallback)");
+        setToastMessage('Message copied to clipboard!');
+        setToastType("success");
+        setShowToast(true);
       } catch (fallbackErr) {
         console.error("Fallback copy failed: ", fallbackErr);
       }
       document.body.removeChild(textArea);
+      onClose();
     }
-  };
-
-  const handleForward = () => {
-    console.log("Forward message:", message);
   };
 
   const handleDownload = () => {
@@ -85,6 +114,7 @@ const ContextMenu = ({
       link.click();
       document.body.removeChild(link);
     }
+    onClose();
   };
 
   const handlePinToggle = async () => {
@@ -97,137 +127,125 @@ const ContextMenu = ({
         )
       };
       await togglePinMessage(payload);
+      onClose();
     } catch (error) {
       console.error("Failed to pin/unpin message:", error);
+      onClose();
     }
   };
 
   return (
-    <div
-      ref={contextMenuRef}
-      className="fixed bg-[#1a1a1a]/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-[#3a3a3a] py-2 z-50 text-sm min-w-[200px] animate-in fade-in zoom-in-95 duration-150"
-      style={{ top: contextMenu.y, left: contextMenu.x }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        onClick={() => onReply(contextMenu.message)}
-        className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
+    <>
+      <div
+        ref={contextMenuRef}
+        className="fixed bg-[#2a2f32] rounded-lg shadow-[0_2px_5px_0_rgba(11,20,26,0.26),0_2px_10px_0_rgba(11,20,26,0.16)] py-2 z-50 text-[14.2px] min-w-[200px] animate-in fade-in zoom-in-95 duration-100 origin-top-left"
+        style={{ top: contextMenu.y, left: contextMenu.x }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <Reply className="w-4 h-4 text-[#00d9ff] group-hover:scale-110 transition-transform" />
-        <span>Reply</span>
-      </button>
+        <button
+          onClick={handleReply}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+        >
+          <span className="font-normal">Reply</span>
+          <Reply className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+        </button>
 
-      {/* Pin/Unpin Option */}
-      <button
-        onClick={handlePinToggle}
-        disabled={isPinningThis}
-        className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group disabled:opacity-50"
-      >
-        {isPinningThis ? (
-          <div className="w-4 h-4 border-2 border-[#00d9ff] border-t-transparent rounded-full animate-spin" />
-        ) : isPinned ? (
-          <PinOff className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
-        ) : (
-          <Pin className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
+        <button
+          onClick={handlePinToggle}
+          disabled={isPinningThis}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229] disabled:opacity-50"
+        >
+          <span className="font-normal">{isPinned ? "Unpin" : "Pin"}</span>
+          {isPinningThis ? (
+            <div className="w-[18px] h-[18px] border-2 border-[#8696a0] border-t-transparent rounded-full animate-spin ml-auto" />
+          ) : isPinned ? (
+            <PinOff className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          ) : (
+            <Pin className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          )}
+        </button>
+
+        {isOwn && hasCopyableText && (
+          <button
+            onClick={handleEdit}
+            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+          >
+            <span className="font-normal">Edit</span>
+            <Edit2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          </button>
         )}
-        <span>{isPinned ? "Unpin" : "Pin"}</span>
-      </button>
 
-      {isOwn && hasCopyableText && (
         <button
-          onClick={() => onEdit(contextMenu.message)}
-          className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
+          onClick={handleStarToggle}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
         >
-          <Edit2 className="w-4 h-4 text-[#00d9ff] group-hover:scale-110 transition-transform" />
-          <span>Edit</span>
+          <span className="font-normal">{isStarred ? "Unstar" : "Star"}</span>
+          <Star
+            className={`w-[18px] h-[18px] ml-auto transition-all ${
+              isStarred ? "fill-[#ffba3d] text-[#ffba3d]" : "text-[#8696a0]"
+            }`}
+          />
         </button>
-      )}
 
-      <button
-        onClick={() => onStarToggle(contextMenu.message._id)}
-        className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-      >
-        <Star
-          className={`w-4 h-4 transition-all group-hover:scale-110 ${
-            isStarred ? "fill-yellow-500 text-yellow-500" : "text-[#999]"
-          }`}
-        />
-        <span>{isStarred ? "Unstar" : "Star"}</span>
-      </button>
-
-      {/* Delete Options */}
-      {isOwn ? (
-        // For own messages: Show both delete options
-        <>
+        {isOwn ? (
           <button
-            onClick={() => onDelete(contextMenu.message, "me")}
-            className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
+            onClick={() => handleDelete()}
+            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
             disabled={isSendingMessage}
           >
-            <Trash2 className="w-4 h-4 text-gray-400 group-hover:scale-110 transition-transform" />
-            <span>Delete for Me</span>
+            <span className="font-normal">Delete</span>
+            <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
           </button>
+        ) : (
           <button
-            onClick={() => onDelete(contextMenu.message, "everyone")}
-            className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
+            onClick={() => handleDelete("me")}
+            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
             disabled={isSendingMessage}
           >
-            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            <span>Delete for Everyone</span>
+            <span className="font-normal">Delete for me</span>
+            <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
           </button>
-        </>
-      ) : (
-        // For others' messages: Only show "Delete for Me"
+        )}
+
+        <div className="border-t border-[#3b4a54] my-1" />
+
+        {hasCopyableText && (
+          <button
+            onClick={handleCopy}
+            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+          >
+            <span className="font-normal">Copy</span>
+            <Copy className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          </button>
+        )}
+
         <button
-          onClick={() => onDelete(contextMenu.message, "me")}
-          className="w-full px-4 py-2.5 text-left hover:bg-red-500/10 flex items-center gap-3 text-red-400 transition-all group"
-          disabled={isSendingMessage}
+          onClick={handleForward}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
         >
-          <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          <span>Delete for Me</span>
+          <span className="font-normal">Forward</span>
+          <Forward className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
         </button>
-      )}
 
-      <div className="border-t border-[#3a3a3a] my-1 mx-2" />
+        {contextMenu.message.image && (
+          <button
+            onClick={handleDownload}
+            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+          >
+            <span className="font-normal">Download</span>
+            <Download className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          </button>
+        )}
+      </div>
 
-      {/* Copy button - only show if message has text */}
-      {hasCopyableText && (
-        <button
-          onClick={handleCopy}
-          className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-        >
-          <Copy className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
-          <span>Copy</span>
-        </button>
-      )}
-
-      <button
-        onClick={handleForward}
-        className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-      >
-        <Forward className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
-        <span>Forward</span>
-      </button>
-
-      {contextMenu.message.image && (
-        <button
-          onClick={handleDownload}
-          className="w-full px-4 py-2.5 text-left hover:bg-[#2a2a2a] flex items-center gap-3 text-white transition-all group"
-        >
-          <Download className="w-4 h-4 text-[#999] group-hover:scale-110 transition-transform" />
-          <span>Download</span>
-        </button>
-      )}
-
-      {/* Toast */}
-            <Toast
-              show={showToast}
-              message={toastMessage}
-              type={toastType}
-              onClose={() => setShowToast(false)}
-              duration={3000}
-            />
-    </div>
+      <Toast
+        show={showToast}
+        message={toastMessage}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+        duration={3000}
+      />
+    </>
   );
 };
 

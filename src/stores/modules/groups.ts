@@ -14,7 +14,7 @@ interface User {
 
 interface Message {
   _id: string;
-  text?: string;
+  text?: string; 
   image?: string | null;
   senderId: User | string;
   receiverId?: string;

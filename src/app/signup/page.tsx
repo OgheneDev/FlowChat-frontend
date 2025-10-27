@@ -352,7 +352,7 @@ const SignUpPage = () => {
               type="button"
               onClick={handleSubmit}
               disabled={isSigningUp}
-              className="relative w-full py-4 rounded-xl font-semibold text-base transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] mt-6"
+              className="relative w-full cursor-pointer py-4 rounded-xl text-base transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98] mt-6"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <span className="relative z-10 flex items-center gap-2">
@@ -380,7 +380,7 @@ const SignUpPage = () => {
             <div className="text-center">
               <p className="text-sm text-gray-400">
                 Already have an account?{' '}
-                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+                <Link href="/login" className="text-cyan-400 hover:text-cyan-300 transition-colors">
                   Sign In
                 </Link>
               </p>

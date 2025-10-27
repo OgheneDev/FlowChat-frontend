@@ -1,7 +1,9 @@
+
 export interface sendMessageData {
-    text: string,
-    image: string,
-    replyTo: string
+    text?: string;
+    image?: string;
+    replyTo?: string;
+    isForwarded?: boolean;
 }
 
 export interface Message {

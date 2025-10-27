@@ -118,7 +118,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   };
 
   set((state) => ({
-    privateMessages: optimisticUpdater(state.privateMessages),
+    privateMessages: optimisticUpdater(state.privateMessages), 
   }));
 
   try {

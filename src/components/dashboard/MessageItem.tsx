@@ -1,11 +1,12 @@
 import React, { useState, forwardRef } from "react";
-import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon } from "lucide-react";
+import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon, Forward } from "lucide-react";
 import { usePrivateChatStore, useGroupStore, useUIStore, useStarringStore } from "@/stores";
 import { formatTime } from "@/utils/utils";
 import useContextMenu from "./useContextMenu";
 import { ImageModal } from "./ImageModal";
 import ContextMenu from "./ContextMenu"; 
 import DeleteModal from "./DeleteModal"; 
+import ForwardModal from "./ForwardModal";
 
 interface MessageItemProps {
   message: any;
@@ -26,13 +27,17 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     const [fullImage, setFullImage] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editText, setEditText] = useState("");
-    const [deleteModal, setDeleteModal] = useState<{ message: any; deleteType: "me" | "everyone" } | null>(null);
+    const [deleteModal, setDeleteModal] = useState<{ message: any; deleteType?: "me" | "everyone" } | null>(null);
+    const [forwardModal, setForwardModal] = useState<{ isOpen: boolean; message: any }>({
+      isOpen: false,
+      message: null
+    });
 
     const deleteMessage = type === "group" ? deleteGroup : deletePrivate;
     const editMessage = type === "group" ? editGroup : editPrivate;
     const isStarred = starredMessages.includes(message._id);
 
-    const { contextMenu, contextMenuRef, showContextMenu, handleTouchStart } = useContextMenu();
+    const { contextMenu, setContextMenu, contextMenuRef, showContextMenu, handleTouchStart } = useContextMenu();
 
     const senderId = typeof message.senderId === "string" ? message.senderId : message.senderId?._id;
     const isOwn = senderId === authUser?._id;
@@ -54,6 +59,11 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       ? senderFullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
       : "?";
 
+    // Handler functions
+    const closeContextMenu = () => {
+      setContextMenu(null);
+    };
+
     const startReply = (msg: any) => {
       setReplyingTo({
         _id: msg._id,
@@ -61,11 +71,13 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
         image: msg.image,
         senderId: msg.senderId,
       });
+      closeContextMenu();
     };
 
     const handleEdit = (msg: any) => {
       setEditingMessageId(msg._id);
       setEditText(msg.text ?? "");
+      closeContextMenu();
     };
 
     const saveEdit = async () => {
@@ -95,16 +107,16 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
         console.error("Delete failed:", err);
       }
       setDeleteModal(null);
+      closeContextMenu();
     };
 
-    // FIXED: Single function declaration
-    const openDeleteModal = (msg: any, deleteType: "me" | "everyone") => {
+    const openDeleteModal = (msg: any, deleteType?: "me" | "everyone") => {
       setDeleteModal({ message: msg, deleteType });
     };
 
-    // FIXED: Use this function for context menu delete
-    const handleContextMenuDelete = (msg: any, deleteType: "me" | "everyone") => {
+    const handleContextMenuDelete = (msg: any, deleteType?: "me" | "everyone") => {
       openDeleteModal(msg, deleteType);
+      closeContextMenu();
     };
 
     const handleStarToggle = async (msgId: string) => {
@@ -113,9 +125,42 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       } catch (e) {
         console.error(e);
       }
+      closeContextMenu();
     };
 
-    // FIXED: Move deleted message check to the beginning of component render
+    const handleForward = (msg: any) => {
+      setForwardModal({
+        isOpen: true,
+        message: {
+          text: msg.text,
+          image: msg.image
+        }
+      });
+      closeContextMenu();
+    };
+
+    const handleForwardMessages = async (selectedIds: string[], messageToForward: any) => {
+      try {
+        for (const id of selectedIds) {
+          await sendForwardedMessage(id, messageToForward);
+        }
+        console.log(`Message forwarded to ${selectedIds.length} chats`);
+      } catch (error) {
+        console.error("Error forwarding message:", error);
+      }
+    };
+
+    const sendForwardedMessage = async (recipientId: string, message: any) => {
+      const messageData = {
+        text: message.text || "", // Keep original text without "Forwarded:" prefix
+        image: message.image || "",
+        replyTo: "",
+        isForwarded: true // Set this to true for forwarded messages
+      };
+
+      await usePrivateChatStore.getState().sendPrivateMessage(recipientId, messageData);
+    };
+
     if (message.isDeleted && message.text === "You deleted this message") {
       return (
         <div
@@ -174,6 +219,14 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
           )}
 
           <div className="flex flex-col gap-1 max-w-[78%] md:max-w-[65%]">
+            {/* Forwarded Indicator */}
+            {message.isForwarded && (
+  <div className={`flex items-center gap-1 text-xs ${isOwn ? 'justify-end' : 'justify-start'}`}>
+    <Forward className="w-3 h-3 text-[#8696a0]" />
+    <span className="text-[#8696a0] font-medium">Forwarded</span>
+  </div>
+)}
+
             {type === "group" && !isOwn && senderFullName && (
               <span className="text-xs font-semibold text-[#00d9ff] ml-1 tracking-tight">
                 {senderFullName}
@@ -194,11 +247,11 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
                   } backdrop-blur-sm"`}
                 >
                   <div className="flex items-center gap-2 text-xs font-medium">
-                    <Reply className="w-3 h-3 text-[#00d9ff]" />
-                    <span className="text-[#00d9ff]">
+                    <Reply className="w-3 h-3" />
+                    <span>
                       {isOwn ? "You" : senderFullName || "User"}
                     </span>
-                    <span className="truncate text-[#aaa] max-w-[180px]">
+                    <span className="truncate max-w-[180px]">
                       {message.replyTo.text || "Image"}
                     </span>
                   </div>
@@ -277,7 +330,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
           </div>
         </div>
 
-        {contextMenu && (
+        {contextMenu && contextMenu.message._id === message._id && (
           <ContextMenu
             contextMenu={contextMenu}
             contextMenuRef={contextMenuRef}
@@ -286,24 +339,35 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             onReply={startReply}
             onEdit={handleEdit}
             onStarToggle={handleStarToggle}
-            onDelete={handleContextMenuDelete} // FIXED: Use handleContextMenuDelete
+            onDelete={handleContextMenuDelete}
+            onForward={handleForward}
+            onClose={closeContextMenu}
             isSendingMessage={isSendingMessage}
             isOwn={isOwn}
             type={type}
+            selectedUser={null}
           />
         )}
 
         {deleteModal && (
           <DeleteModal
             message={deleteModal.message}
+            deleteType={deleteModal.deleteType}
             onDelete={handleDelete}
             onClose={() => setDeleteModal(null)}
-            deleteType={deleteModal.deleteType}
             isSendingMessage={isSendingMessage}
+            isOwn={isOwn}
           />
         )}
 
         {fullImage && <ImageModal src={fullImage} onClose={() => setFullImage(null)} />}
+
+        <ForwardModal
+          isOpen={forwardModal.isOpen}
+          message={forwardModal.message}
+          onForward={handleForwardMessages}
+          onClose={() => setForwardModal({ isOpen: false, message: null })}
+        />
       </>
     );
   }

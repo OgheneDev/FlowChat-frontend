@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import { SkeletonLoader } from "./SidebarSkeletonLoader";
 import ChatItem from "./ChatItem";
-import { MessageCircle, Users, User } from "lucide-react";
+import { MessageCircle, Users, User, Plus } from "lucide-react";
 import { Tab } from "@/stores";
 import { useStarringStore } from "@/stores";
 
@@ -15,22 +15,36 @@ interface TabContentProps {
   filteredGroups: any[];
 }
 
-const EmptyState = ({ title, description, icon: Icon }: { title: string; description: string; icon: React.ReactNode }) => (
-  <div>
-    <div className="flex flex-col items-center justify-center h-64 text-center px-6">
+const EmptyState = ({ title, description, icon: Icon, activeTab }: { title: string; description: string; icon: React.ReactNode; activeTab: Tab }) => {
+  return (
+    <div className="relative flex flex-col items-center justify-center h-64 text-center px-6">
       <div className="p-4 bg-[#1e1e1e] rounded-full mb-4">
         {Icon}
       </div>
       <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
       <p className="text-sm text-[#999999]">{description}</p>
+      
+      {/* Conditional rendering for buttons based on activeTab */}
+      {activeTab === "chats" && (
+        <button
+          className="absolute bottom-[-50] cursor-pointer left-4 bg-[#00d9ff] text-black p-3 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors"
+          aria-label="Start a new chat"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+      )}
+      {activeTab === "groups" && (
+        <button
+          className="mt-4 bg-[#00d9ff] text-black cursor-pointer px-4 py-2 rounded-full shadow-md hover:bg-[#00c4e6] transition-colors text-sm font-medium"
+          aria-label="Create a new group"
+        >
+          Create group
+        </button>
+      )}
+      {/* No button for contacts as per request */}
     </div>
-    <div className="mt-4">
-      <button className="text-sm text-[#00d9ff] hover:underline">
-        {title === "No chats" ? "Start a conversation" : title === "No contacts" ? "Add contact" : "Create group"}
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 export const TabContent: React.FC<TabContentProps> = ({
   isLoading,
@@ -83,7 +97,7 @@ export const TabContent: React.FC<TabContentProps> = ({
     };
 
     const config = emptyConfig[activeTab];
-    return <EmptyState {...config} />;
+    return <EmptyState {...config} activeTab={activeTab} />;
   }
 
   return (

@@ -217,7 +217,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="relative text-sm cursor-pointer w-full py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98]"
+              className="relative text-sm cursor-pointer w-full py-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-[1.02] active:scale-[0.98]"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               <span className="relative z-10 flex items-center gap-2">
@@ -246,7 +246,7 @@ const LoginPage = () => {
             <div className="text-center">
               <p className="text-sm text-gray-400">
                 Don't have an account?{' '}
-                <Link href="/signup" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors">
+                <Link href="/signup" className="text-cyan-400 hover:text-cyan-300 transition-colors">
                   Create Account
                 </Link>
               </p>
