@@ -134,6 +134,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
             authUser={authUser}
             messages={messages}
             isSendingMessage={isSendingMessage}
+            selectedUser={selectedUser}
             ref={(el) => setMessageRef(message._id, el)}
           />
         ))}

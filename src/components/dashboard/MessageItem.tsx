@@ -15,10 +15,11 @@ interface MessageItemProps {
   authUser: { _id: string } | null;
   messages: any[];
   isSendingMessage: boolean;
+  selectedUser?: any;
 }
 
 const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
-  ({ message, index, type, authUser, messages, isSendingMessage }, ref) => {
+  ({ message, index, type, authUser, messages, isSendingMessage, selectedUser }, ref) => {
     const { setReplyingTo } = useUIStore();
     const { toggleStarMessage, starredMessages } = useStarringStore();
     const { deleteMessage: deletePrivate, editMessage: editPrivate } = usePrivateChatStore();
@@ -345,7 +346,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             isSendingMessage={isSendingMessage}
             isOwn={isOwn}
             type={type}
-            selectedUser={null}
+            selectedUser={selectedUser}
           />
         )}
 

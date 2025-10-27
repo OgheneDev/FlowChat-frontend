@@ -135,37 +135,36 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   const { getPrivateMessages, isMessagesLoading } = usePrivateChatStore();
   const { getGroupMessages } = useGroupStore();
   const { setSelectedUser } = useUIStore();
-  const { pinnedMessages, loadPinnedData, fetchMultipleMessageDetails } = usePinningStore();
+  const { 
+    pinnedMessages, // These are now always chat-specific
+    loadPinnedMessagesForChat,
+    fetchMultipleMessageDetails 
+  } = usePinningStore();
   
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
-
   const messageListRef = useRef<MessageListHandle>(null);
 
-  // Use pinnedMessages directly from store
+  // pinnedMessages are now always filtered for the current chat
   const chatPinnedMessages = pinnedMessages;
 
   useEffect(() => {
     if (selectedUser) {
       if (type === 'group') {
         getGroupMessages(selectedUser._id);
+        // Load ONLY pinned messages for this specific group
+        loadPinnedMessagesForChat({ groupId: selectedUser._id });
       } else {
         getPrivateMessages(selectedUser._id);
+        // Load ONLY pinned messages for this specific direct chat
+        loadPinnedMessagesForChat({ chatPartnerId: selectedUser._id });
       }
     }
-  }, [selectedUser, type]);
-
-  // Load pinned data when component mounts
-  useEffect(() => {
-    const loadData = async () => {
-      await loadPinnedData();
-    };
-    loadData();
-  }, [loadPinnedData]);
+  }, [selectedUser, type, getPrivateMessages, getGroupMessages, loadPinnedMessagesForChat]);
 
   // Preload pinned message details when pinned messages change
   useEffect(() => {
     if (chatPinnedMessages.length > 0) {
-      fetchMultipleMessageDetails(chatPinnedMessages.slice(0, 3)); // Preload first 3
+      fetchMultipleMessageDetails(chatPinnedMessages.slice(0, 3));
     }
   }, [chatPinnedMessages, fetchMultipleMessageDetails]);
 
@@ -248,12 +247,12 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
           </div>
         </div>
         
-        {/* Pinned Messages Header */}
+        {/* Pinned Messages Header - Only show if there are pinned messages for THIS chat */}
         {chatPinnedMessages.length > 0 && (
           <div className="px-4 py-2 bg-gradient-to-r from-[#00d9ff]/10 to-transparent border-t border-[#00d9ff]/20">
             <button
               onClick={() => setShowPinnedMessages(!showPinnedMessages)}
-              className="flex items-center gap-2 text-xs text-[#00d9ff] hover:text-white transition-colors group w-full"
+              className="flex items-center cursor-pointer gap-2 text-xs text-[#00d9ff] hover:text-white transition-colors group w-full"
             >
               <Pin className="w-3 h-3 group-hover:scale-110 transition-transform" />
               <span className="font-medium">
@@ -269,7 +268,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
         <div className="h-px bg-gradient-to-r from-transparent via-[#00d9ff]/30 to-transparent" />
       </header>
 
-      {/* Pinned Messages Section */}
+      {/* Pinned Messages Section - Only show messages pinned in THIS chat */}
       {showPinnedMessages && chatPinnedMessages.length > 0 && (
         <div className="bg-[#1a1a1a]/50 border-b border-[#2a2a2a]">
           <div className="p-3">
@@ -305,6 +304,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
       )}
 
       <MessageList 
+        ref={messageListRef}
         isLoading={isMessagesLoading} 
         type={type} 
         selectedUser={selectedUser}
