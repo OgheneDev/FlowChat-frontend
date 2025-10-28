@@ -95,7 +95,7 @@ export const TabContent: React.FC<TabContentProps> = ({
         icon: <Users className="w-8 h-8 text-[#999999]" />,
       },
     };
-
+ 
     const config = emptyConfig[activeTab];
     return <EmptyState {...config} activeTab={activeTab} />;
   }

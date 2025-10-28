@@ -55,6 +55,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await axiosInstance.get("/messages/chats");
+      console.log("Chat Partners:", data)
       set({ chats: data });
       return data;
     } catch (error: any) {

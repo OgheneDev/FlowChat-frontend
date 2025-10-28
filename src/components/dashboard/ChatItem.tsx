@@ -82,7 +82,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
             <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-[#121212] rounded-full"></span>
           )}
         </div>
-
+ 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <h3 className="font-medium text-white text-sm truncate pr-2">{displayName}</h3>

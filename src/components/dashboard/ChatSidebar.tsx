@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore } from '@/stores';
-import { Tab } from '@/stores'; // ← Use imported Tab
+import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore, useStarringStore } from '@/stores';
+import { Tab } from '@/stores';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
 import { TabContent } from './TabContent';
 import { Toast } from '../ui/toast';
 import Swal from 'sweetalert2';
-
-// Remove this line:
-// type Tab = "chats" | "contacts" | "groups";
 
 interface AuthUser {
   profilePic?: string;
@@ -25,7 +22,7 @@ const ChatSidebar = () => {
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
-
+ 
   // Contact Store
   const { contacts, isLoading: isContactsLoading, getAllContacts } = useContactStore();
 
@@ -45,6 +42,13 @@ const ChatSidebar = () => {
     { id: 'contacts', label: 'Contacts', icon: <User className="w-4 h-4" /> },
     { id: 'groups', label: 'Groups', icon: <Users className="w-4 h-4" /> },
   ];
+
+  // In ChatSidebar component, add this effect to refresh when starring changes
+const { starredChats } = useStarringStore();
+
+useEffect(() => {
+  // This will trigger a re-render and re-sort when starredChats changes
+}, [starredChats]);
 
   useEffect(() => {
     if (authUser) {
@@ -68,18 +72,50 @@ const ChatSidebar = () => {
     }
   };
 
-  const filterList = (items: any[], searchFields: string[]) => {
-    if (!searchQuery.trim()) return items;
-    return items.filter((item) =>
-      searchFields.some((field) =>
-        item[field]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    );
-  };
+// Replace your current sortByLastMessage function with this:
+const sortByLastMessage = (items: any[], type: 'chats' | 'contacts' | 'groups') => {
+  // Get starred chats from the store
+  const { starredChats } = useStarringStore.getState();
+  
+  return items.sort((a, b) => {
+    // Check if items are starred
+    const aIsStarred = starredChats.includes(a._id);
+    const bIsStarred = starredChats.includes(b._id);
+    
+    // Starred items always come first
+    if (aIsStarred && !bIsStarred) return -1;
+    if (!aIsStarred && bIsStarred) return 1;
+    
+    // For chats and groups, use lastMessage.createdAt for non-starred items
+    if (type === 'chats' || type === 'groups') {
+      const aTime = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const bTime = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return bTime - aTime; // Most recent first
+    }
+    
+    // For contacts, you might want different sorting (alphabetical, online status, etc.)
+    if (type === 'contacts') {
+      return a.fullName?.localeCompare(b.fullName || '') || 0;
+    }
+    
+    return 0;
+  });
+};
 
-  const filteredChats = filterList(chats || [], ['fullName']);
-  const filteredContacts = filterList(contacts || [], ['fullName']);
-  const filteredGroups = filterList(groups || [], ['name']);
+const filterList = (items: any[], searchFields: string[], type: 'chats' | 'contacts' | 'groups') => {
+  if (!searchQuery.trim()) return sortByLastMessage([...items], type);
+  const filtered = items.filter((item) =>
+    searchFields.some((field) =>
+      item[field]?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  );
+  return sortByLastMessage(filtered, type);
+};
+
+// Apply with type parameter
+const filteredChats = filterList(chats || [], ['fullName'], 'chats');
+const filteredContacts = filterList(contacts || [], ['fullName'], 'contacts');
+const filteredGroups = filterList(groups || [], ['name'], 'groups');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
