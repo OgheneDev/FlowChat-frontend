@@ -144,3 +144,18 @@
 .message-item {
   transition: all 0.3s ease;
 }
+
+.selection-mode .selectable-message:hover {
+  background-color: rgba(0, 217, 255, 0.05);
+  transition: background-color 0.2s ease;
+}
+
+.message-highlight {
+  animation: highlight-pulse 3s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0% { background-color: rgba(0, 217, 255, 0.3); }
+  50% { background-color: rgba(0, 217, 255, 0.1); }
+  100% { background-color: transparent; }
+}

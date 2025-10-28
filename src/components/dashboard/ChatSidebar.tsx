@@ -37,7 +37,7 @@ const ChatSidebar = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [ 
     { id: 'chats', label: 'Chats', icon: <MessageCircle className="w-4 h-4" /> },
     { id: 'contacts', label: 'Contacts', icon: <User className="w-4 h-4" /> },
     { id: 'groups', label: 'Groups', icon: <Users className="w-4 h-4" /> },

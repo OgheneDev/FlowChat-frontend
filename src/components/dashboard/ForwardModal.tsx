@@ -1,6 +1,5 @@
-// components/ForwardModal.tsx
 import React, { useState, useEffect } from "react";
-import { X, Search, User, Users, Check } from "lucide-react";
+import { X, Search, User, Users, Check, MessageSquare } from "lucide-react";
 import { usePrivateChatStore } from "@/stores";
 import { useGroupStore } from "@/stores";
 
@@ -21,14 +20,23 @@ interface Group {
 interface ForwardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  message: {
+  message?: {
     text?: string;
     image?: string;
   };
-  onForward: (selectedIds: string[], message: any) => void;
+  messages?: any[]; // Add this for bulk forwarding
+  onForward: (selectedIds: string[], messages: any[]) => void;
+  isBulk?: boolean; // Add this to distinguish between single and bulk forwarding
 }
 
-const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps) => {
+const ForwardModal = ({ 
+  isOpen, 
+  onClose, 
+  message, 
+  messages = [], 
+  onForward, 
+  isBulk = false 
+}: ForwardModalProps) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -41,6 +49,8 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
   useEffect(() => {
     if (isOpen) {
       fetchData();
+      setSelectedItems([]);
+      setSearchTerm("");
     }
   }, [isOpen]);
 
@@ -96,10 +106,33 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
   const handleForward = () => {
     if (selectedItems.length === 0) return;
     
-    onForward(selectedItems, message);
+    // For bulk forwarding, use the messages array
+    // For single message forwarding, create an array with the single message
+    const messagesToForward = isBulk ? messages : [message];
+    
+    onForward(selectedItems, messagesToForward);
     onClose();
     setSelectedItems([]);
     setSearchTerm("");
+  };
+
+  // Get message preview for display
+  const getMessagePreview = () => {
+    if (isBulk && messages.length > 0) {
+      if (messages.length === 1) {
+        const msg = messages[0];
+        return msg.text 
+          ? (msg.text.length > 30 ? msg.text.substring(0, 30) + '...' : msg.text)
+          : msg.image ? '📷 Photo' : 'Message';
+      } else {
+        return `${messages.length} messages`;
+      }
+    } else if (message) {
+      return message.text 
+        ? (message.text.length > 30 ? message.text.substring(0, 30) + '...' : message.text)
+        : message.image ? '📷 Photo' : 'Message';
+    }
+    return '';
   };
 
   if (!isOpen) return null;
@@ -110,8 +143,26 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#3b4a54]">
           <div>
-            <h2 className="text-lg font-semibold text-white">Forward Message</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {isBulk ? 'Forward Messages' : 'Forward Message'}
+            </h2>
             <p className="text-sm text-[#8696a0]">Select chats to forward to</p>
+            
+            {/* Message Preview */}
+            {(message || (isBulk && messages.length > 0)) && (
+              <div className="mt-2 p-2 bg-[#2a2a2a] rounded-lg border border-[#3b4a54]">
+                <div className="flex items-center gap-2 text-xs text-[#8696a0]">
+                  <MessageSquare className="w-3 h-3" />
+                  <span className="font-medium">Forwarding:</span>
+                  <span className="text-white truncate">{getMessagePreview()}</span>
+                  {isBulk && messages.length > 1 && (
+                    <span className="text-[#00d9ff] font-medium ml-1">
+                      ({messages.length})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -157,7 +208,7 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
                 <div>
                   <div className="px-4 py-2 bg-[#2a2a2a]">
                     <p className="text-xs font-medium text-[#8696a0] uppercase tracking-wide">
-                      Contacts
+                      Contacts ({filteredContacts.length})
                     </p>
                   </div>
                   {filteredContacts.map(contact => (
@@ -179,7 +230,7 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
                 <div>
                   <div className="px-4 py-2 bg-[#2a2a2a]">
                     <p className="text-xs font-medium text-[#8696a0] uppercase tracking-wide">
-                      Groups
+                      Groups ({filteredGroups.length})
                     </p>
                   </div>
                   {filteredGroups.map(group => (
@@ -200,6 +251,9 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
                 <div className="flex flex-col items-center justify-center py-8 text-[#8696a0]">
                   <Search className="w-12 h-12 mb-2 opacity-50" />
                   <p>No contacts or groups found</p>
+                  {searchTerm && (
+                    <p className="text-sm mt-1">Try a different search term</p>
+                  )}
                 </div>
               )}
             </>
@@ -213,7 +267,7 @@ const ForwardModal = ({ isOpen, onClose, message, onForward }: ForwardModalProps
             disabled={selectedItems.length === 0}
             className="w-full bg-[#00d9ff] cursor-pointer text-sm text-white py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00d9ff]/90 transition-colors"
           >
-            Forward to {selectedItems.length} {selectedItems.length === 1 ? 'chat' : 'chats'}
+            {isBulk ? 'Forward' : 'Forward'} to {selectedItems.length} {selectedItems.length === 1 ? 'chat' : 'chats'}
           </button>
         </div>
       </div>

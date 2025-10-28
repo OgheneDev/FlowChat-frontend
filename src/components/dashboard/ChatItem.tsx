@@ -12,7 +12,7 @@ interface ChatItemProps {
 
 const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   const { toggleStarChat, starredChats, isStarring } = useStarringStore();
-  const { setSelectedUser } = useUIStore();
+  const { setSelectedUser } = useUIStore(); 
   const [toast, setToast] = useState({ 
     show: false, 
     message: '', 
@@ -51,16 +51,22 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   };
 
   const getLastMessagePreview = () => {
-    if (!item.lastMessage) return <span className="italic">No messages yet</span>;
-    const { text, image } = item.lastMessage;
-    if (text) return text;
-    if (image) return (
-      <span className="flex items-center gap-1 text-[#999999]">
-        <Image className="w-3 h-3" /> Photo
-      </span>
-    );
-    return "No messages";
-  };
+  if (!item.lastMessage) return <span className="italic">No messages yet</span>;
+
+  // NEW: check the deleted flag first
+  if (item.lastMessage.deletedForEveryone) {
+    return <span className="italic text-[#999999]">This message was deleted</span>;
+  }
+
+  const { text, image } = item.lastMessage;
+  if (text) return text;
+  if (image) return (
+    <span className="flex items-center gap-1 text-[#999999]">
+      <Image className="w-3 h-3" /> Photo
+    </span>
+  );
+  return "No messages";
+};
 
   return (
     <>

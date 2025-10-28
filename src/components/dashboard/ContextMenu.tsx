@@ -1,7 +1,7 @@
-import React, { useState } from "react";
-import { Reply, Edit2, Star, Trash2, Copy, Forward, Download, Pin, PinOff } from "lucide-react";
+import React from "react";
+import { Reply, Edit2, Star, Trash2, Copy, Forward, Download, Pin, PinOff, CheckSquare } from "lucide-react";
 import { usePinningStore } from "@/stores";
-import { Toast } from "../ui/toast";
+import { useToastStore } from "@/stores/modules/toast";
 
 interface ContextMenuProps {
   contextMenu: { x: number; y: number; message: any };
@@ -18,6 +18,7 @@ interface ContextMenuProps {
   isOwn: boolean;
   type: "user" | "contact" | "group";
   selectedUser?: any;
+  onSelectMode?: (message: any) => void;
 }
 
 const ContextMenu = ({
@@ -35,11 +36,10 @@ const ContextMenu = ({
   isOwn,
   type,
   selectedUser,
+  onSelectMode,
 }: ContextMenuProps) => {
   const { togglePinMessage, isMessagePinned, isPinning } = usePinningStore();
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const { showToast } = useToastStore();
   
   const isPinned = isMessagePinned(message._id);
   const isPinningThis = isPinning === message._id;
@@ -77,14 +77,10 @@ const ContextMenu = ({
     
     try {
       await navigator.clipboard.writeText(message.text);
-      setToastMessage('Message copied to clipboard!');
-      setToastType("success");
-      setShowToast(true);
+      showToast('Message copied to clipboard!', 'success');
       onClose();
     } catch (err) {
-      setToastMessage("Failed to copy to clipboard!");
-      setToastType("error");
-      setShowToast(true);
+      showToast("Failed to copy to clipboard!", 'error');
       console.error("Failed to copy text: ", err);
       
       // Fallback copy method
@@ -94,9 +90,7 @@ const ContextMenu = ({
       textArea.select();
       try {
         document.execCommand("copy");
-        setToastMessage('Message copied to clipboard!');
-        setToastType("success");
-        setShowToast(true);
+        showToast('Message copied to clipboard!', 'success');
       } catch (fallbackErr) {
         console.error("Fallback copy failed: ", fallbackErr);
       }
@@ -113,6 +107,7 @@ const ContextMenu = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      showToast('Image downloaded!', 'success');
     }
     onClose();
   };
@@ -134,118 +129,124 @@ const ContextMenu = ({
     }
   };
 
+  const handleSelectMode = () => {
+    if (onSelectMode) {
+      onSelectMode(contextMenu.message);
+    }
+    onClose();
+  };
+
   return (
-    <>
-      <div
-        ref={contextMenuRef}
-        className="fixed bg-[#2a2f32] rounded-lg shadow-[0_2px_5px_0_rgba(11,20,26,0.26),0_2px_10px_0_rgba(11,20,26,0.16)] py-2 z-50 text-[14.2px] min-w-[200px] animate-in fade-in zoom-in-95 duration-100 origin-top-left"
-        style={{ top: contextMenu.y, left: contextMenu.x }}
-        onClick={(e) => e.stopPropagation()}
+    <div
+      ref={contextMenuRef}
+      className="fixed bg-[#2a2f32] rounded-lg shadow-[0_2px_5px_0_rgba(11,20,26,0.26),0_2px_10px_0_rgba(11,20,26,0.16)] py-2 z-50 text-[14.2px] min-w-[200px] animate-in fade-in zoom-in-95 duration-100 origin-top-left"
+      style={{ top: contextMenu.y, left: contextMenu.x }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Select Option */}
+      <button
+        onClick={handleSelectMode}
+        className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
       >
-        <button
-          onClick={handleReply}
-          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-        >
-          <span className="font-normal">Reply</span>
-          <Reply className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-        </button>
+        <span className="font-normal">Select</span>
+        <CheckSquare className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+      </button>
 
-        <button
-          onClick={handlePinToggle}
-          disabled={isPinningThis}
-          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229] disabled:opacity-50"
-        >
-          <span className="font-normal">{isPinned ? "Unpin" : "Pin"}</span>
-          {isPinningThis ? (
-            <div className="w-[18px] h-[18px] border-2 border-[#8696a0] border-t-transparent rounded-full animate-spin ml-auto" />
-          ) : isPinned ? (
-            <PinOff className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          ) : (
-            <Pin className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          )}
-        </button>
+      <button
+        onClick={handleReply}
+        className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+      >
+        <span className="font-normal">Reply</span>
+        <Reply className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+      </button>
 
-        {isOwn && hasCopyableText && (
-          <button
-            onClick={handleEdit}
-            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-          >
-            <span className="font-normal">Edit</span>
-            <Edit2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          </button>
-        )}
-
-        <button
-          onClick={handleStarToggle}
-          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-        >
-          <span className="font-normal">{isStarred ? "Unstar" : "Star"}</span>
-          <Star
-            className={`w-[18px] h-[18px] ml-auto transition-all ${
-              isStarred ? "fill-[#ffba3d] text-[#ffba3d]" : "text-[#8696a0]"
-            }`}
-          />
-        </button>
-
-        {isOwn ? (
-          <button
-            onClick={() => handleDelete()}
-            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-            disabled={isSendingMessage}
-          >
-            <span className="font-normal">Delete</span>
-            <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          </button>
+      <button
+        onClick={handlePinToggle}
+        disabled={isPinningThis}
+        className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229] disabled:opacity-50"
+      >
+        <span className="font-normal">{isPinned ? "Unpin" : "Pin"}</span>
+        {isPinningThis ? (
+          <div className="w-[18px] h-[18px] border-2 border-[#8696a0] border-t-transparent rounded-full animate-spin ml-auto" />
+        ) : isPinned ? (
+          <PinOff className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
         ) : (
-          <button
-            onClick={() => handleDelete("me")}
-            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-            disabled={isSendingMessage}
-          >
-            <span className="font-normal">Delete for me</span>
-            <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          </button>
+          <Pin className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
         )}
+      </button>
 
-        <div className="border-t border-[#3b4a54] my-1" />
-
-        {hasCopyableText && (
-          <button
-            onClick={handleCopy}
-            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-          >
-            <span className="font-normal">Copy</span>
-            <Copy className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          </button>
-        )}
-
+      {isOwn && hasCopyableText && (
         <button
-          onClick={handleForward}
+          onClick={handleEdit}
           className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
         >
-          <span className="font-normal">Forward</span>
-          <Forward className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+          <span className="font-normal">Edit</span>
+          <Edit2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
         </button>
+      )}
 
-        {contextMenu.message.image && (
-          <button
-            onClick={handleDownload}
-            className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
-          >
-            <span className="font-normal">Download</span>
-            <Download className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
-          </button>
-        )}
-      </div>
+      <button
+        onClick={handleStarToggle}
+        className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+      >
+        <span className="font-normal">{isStarred ? "Unstar" : "Star"}</span>
+        <Star
+          className={`w-[18px] h-[18px] ml-auto transition-all ${
+            isStarred ? "fill-[#ffba3d] text-[#ffba3d]" : "text-[#8696a0]"
+          }`}
+        />
+      </button>
 
-      <Toast
-        show={showToast}
-        message={toastMessage}
-        type={toastType}
-        onClose={() => setShowToast(false)}
-        duration={3000}
-      />
-    </>
+      {isOwn ? (
+        <button
+          onClick={() => handleDelete()}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+          disabled={isSendingMessage}
+        >
+          <span className="font-normal">Delete</span>
+          <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+        </button>
+      ) : (
+        <button
+          onClick={() => handleDelete("me")}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+          disabled={isSendingMessage}
+        >
+          <span className="font-normal">Delete for me</span>
+          <Trash2 className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+        </button>
+      )}
+
+      <div className="border-t border-[#3b4a54] my-1" />
+
+      {hasCopyableText && (
+        <button
+          onClick={handleCopy}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+        >
+          <span className="font-normal">Copy</span>
+          <Copy className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+        </button>
+      )}
+
+      <button
+        onClick={handleForward}
+        className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+      >
+        <span className="font-normal">Forward</span>
+        <Forward className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+      </button>
+
+      {contextMenu.message.image && (
+        <button
+          onClick={handleDownload}
+          className="w-full px-6 py-[10px] text-left hover:bg-[#182229] flex items-center gap-[60px] text-[#e9edef] transition-colors active:bg-[#182229]"
+        >
+          <span className="font-normal">Download</span>
+          <Download className="w-[18px] h-[18px] text-[#8696a0] ml-auto" />
+        </button>
+      )}
+    </div>
   );
 };
 

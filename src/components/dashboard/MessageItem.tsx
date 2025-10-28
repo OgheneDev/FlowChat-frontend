@@ -1,5 +1,5 @@
 import React, { useState, forwardRef } from "react";
-import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon, Forward } from "lucide-react";
+import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon, Forward, Check } from "lucide-react";
 import { usePrivateChatStore, useGroupStore, useUIStore, useStarringStore } from "@/stores";
 import { formatTime } from "@/utils/utils";
 import useContextMenu from "./useContextMenu";
@@ -16,10 +16,26 @@ interface MessageItemProps {
   messages: any[];
   isSendingMessage: boolean;
   selectedUser?: any;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (messageId: string) => void;
+  onSelectMode?: (message: any) => void;
 }
 
 const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
-  ({ message, index, type, authUser, messages, isSendingMessage, selectedUser }, ref) => {
+  ({ 
+    message, 
+    index, 
+    type, 
+    authUser, 
+    messages, 
+    isSendingMessage, 
+    selectedUser, 
+    isSelectionMode = false,
+    isSelected = false,
+    onToggleSelect,
+    onSelectMode
+  }, ref) => {
     const { setReplyingTo } = useUIStore();
     const { toggleStarMessage, starredMessages } = useStarringStore();
     const { deleteMessage: deletePrivate, editMessage: editPrivate } = usePrivateChatStore();
@@ -60,7 +76,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       ? senderFullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
       : "?";
 
-    // Handler functions
+    // Handler functions (unchanged)
     const closeContextMenu = () => {
       setContextMenu(null);
     };
@@ -130,15 +146,12 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     };
 
     const handleForward = (msg: any) => {
-      setForwardModal({
-        isOpen: true,
-        message: {
-          text: msg.text,
-          image: msg.image
-        }
-      });
-      closeContextMenu();
-    };
+  setForwardModal({
+    isOpen: true,
+    message: msg
+  });
+  closeContextMenu();
+};
 
     const handleForwardMessages = async (selectedIds: string[], messageToForward: any) => {
       try {
@@ -153,24 +166,36 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
     const sendForwardedMessage = async (recipientId: string, message: any) => {
       const messageData = {
-        text: message.text || "", // Keep original text without "Forwarded:" prefix
+        text: message.text || "",
         image: message.image || "",
         replyTo: "",
-        isForwarded: true // Set this to true for forwarded messages
+        isForwarded: true
       };
 
       await usePrivateChatStore.getState().sendPrivateMessage(recipientId, messageData);
+    };
+
+    const handleSelectMode = (msg: any) => {
+      if (onSelectMode) {
+        onSelectMode(msg);
+      }
+    };
+
+    const handleMessageClick = () => {
+      if (isSelectionMode && onToggleSelect) {
+        onToggleSelect(message._id);
+      }
     };
 
     if (message.isDeleted && message.text === "You deleted this message") {
       return (
         <div
           ref={ref}
-          className={`flex gap-3 group transition-all duration-200 ${
-            isOwn ? "flex-row-reverse" : ""
+          className={`flex gap-3 group transition-all duration-300 ${
+            isOwn ? "justify-end" : "justify-start"
           }`}
         >
-          <div className="flex flex-col gap-1 max-w-[78%] md:max-w-[65%]">
+          <div className="flex flex-col gap-1 max-w-[70%] sm:max-w-[60%]">
             <div className="relative rounded-2xl overflow-hidden transition-all duration-300 bg-[#1f1f1f] shadow-lg border border-[#2a2a2a] opacity-70">
               <p className="px-4 py-3 text-sm leading-relaxed text-gray-400 italic">
                 {message.text}
@@ -188,8 +213,8 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     return (
       <>
         {showDateSeparator && (
-          <div className="flex items-center justify-center my-5">
-            <div className="px-3 py-1 bg-[#1a1a1a]/80 backdrop-blur-sm rounded-full text-xs font-medium text-[#888] border border-[#2a2a2a] shadow-sm">
+          <div className="flex items-center justify-center my-6">
+            <div className="px-4 py-1.5 bg-[#1a1a1a]/90 backdrop-blur-md rounded-full text-xs font-medium text-[#888] border border-[#2a2a2a] shadow-sm">
               {new Date(message.createdAt).toLocaleDateString("en-US", {
                 weekday: "short",
                 month: "short",
@@ -201,84 +226,117 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
         <div
           ref={ref}
-          className={`flex gap-3 group transition-all duration-200 message-item ${
-            isOwn ? "flex-row-reverse" : ""
+          className={`flex gap-3 group transition-all duration-300 message-item ${
+            isSelectionMode ? 'cursor-pointer selectable-message' : ''
+          } ${
+            isSelected ? 'bg-[#00d9ff]/5 rounded-xl' : ''
           }`}
           onContextMenu={(e) => showContextMenu(e, message)}
           onTouchStart={(e) => handleTouchStart(e, message)}
+          onClick={handleMessageClick}
         >
+          {/* Selection Checkbox - positioned based on ownership */}
+          {isSelectionMode && (
+            <div className={`flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+              isOwn ? 'ml-2 order-3' : 'mr-2'
+            }`}>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                isSelected 
+                  ? 'bg-[#00d9ff] border-[#00d9ff] scale-110' 
+                  : 'border-[#666] hover:border-[#00d9ff] hover:scale-105'
+              }`}>
+                {isSelected && <Check className="w-3 h-3 text-white" />}
+              </div>
+            </div>
+          )}
+
+          {/* Avatar - only for non-own messages, left-aligned */}
           {!isOwn && (
-            <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-[#2a2a2a] ring-offset-2 ring-offset-transparent transition-all group-hover:ring-[#00d9ff]/30">
+            <div className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-[#2a2a2a]/50 ring-offset-2 ring-offset-transparent transition-all duration-300 group-hover:ring-[#00d9ff]/40 flex-shrink-0">
               {senderProfilePic ? (
-                <img src={senderProfilePic} alt={senderFullName || "User"} className="w-full h-full object-cover" />
+                <img 
+                  src={senderProfilePic} 
+                  alt={senderFullName || "User"} 
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#00d9ff] bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]">
+                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#00d9ff] bg-gradient-to-br from-[#1a1a1a]/80 to-[#2a2a2a]/80 border border-[#2a2a2a]/50">
                   {initials}
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex flex-col gap-1 max-w-[78%] md:max-w-[65%]">
+          {/* Message Content Container - Constrained width */}
+          <div className={`flex flex-col gap-1.5 flex-1 min-w-0 ${
+            isOwn ? "items-end" : "items-start"
+          }`}>
+            
             {/* Forwarded Indicator */}
             {message.isForwarded && (
-  <div className={`flex items-center gap-1 text-xs ${isOwn ? 'justify-end' : 'justify-start'}`}>
-    <Forward className="w-3 h-3 text-[#8696a0]" />
-    <span className="text-[#8696a0] font-medium">Forwarded</span>
-  </div>
-)}
+              <div className={`flex items-center gap-1.5 text-xs font-medium ${
+                isOwn ? 'justify-end' : 'justify-start'
+              }`}>
+                <Forward className="w-3 h-3 text-[#8696a0]" />
+                <span className="text-[#8696a0]">Forwarded</span>
+              </div>
+            )}
 
+            {/* Sender Name in Group */}
             {type === "group" && !isOwn && senderFullName && (
               <span className="text-xs font-semibold text-[#00d9ff] ml-1 tracking-tight">
                 {senderFullName}
               </span>
             )}
 
+            {/* Main Message Bubble */}
             <div
-              className={`relative rounded-2xl overflow-hidden transition-all duration-300 ${
+              className={`relative rounded-2xl overflow-hidden transition-all duration-400 max-w-[70%] sm:max-w-[60%] ${
                 isOwn
-                  ? "bg-gradient-to-br from-[#00d9ff] to-[#00a3cc] shadow-xl shadow-[#00d9ff]/30"
-                  : "bg-[#1f1f1f] shadow-lg border border-[#2a2a2a]"
+                  ? "bg-gradient-to-r from-[#00d9ff] to-[#0099cc] shadow-lg shadow-[#00d9ff]/25 rounded-br-md"
+                  : "bg-[#1f1f1f] shadow-md border border-[#2a2a2a]/50 rounded-bl-md"
               }`}
             >
               {message.replyTo && (
                 <div
-                  className={`px-3 py-2.5 m-2 mb-1 rounded-lg border-l-4 ${
-                    isOwn ? "bg-white/10 border-white/40" : "bg-[#2a2a2a]/50 border-[#00d9ff]/50"
-                  } backdrop-blur-sm"`}
+                  className={`px-3 py-2 m-2 mb-1 rounded-lg border-l-4 backdrop-blur-sm transition-all duration-200 ${
+                    isOwn 
+                      ? "bg-white/15 border-r-white/30" 
+                      : "bg-[#2a2a2a]/60 border-l-[#00d9ff]/40"
+                  }`}
                 >
-                  <div className="flex items-center gap-2 text-xs font-medium">
-                    <Reply className="w-3 h-3" />
-                    <span>
+                  <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
+                    <Reply className="w-3 h-3 flex-shrink-0" />
+                    <span className="font-semibold">
                       {isOwn ? "You" : senderFullName || "User"}
                     </span>
-                    <span className="truncate max-w-[180px]">
-                      {message.replyTo.text || "Image"}
+                    <span className="truncate max-w-[160px] ml-1">
+                      {message.replyTo.text || "📷 Image"}
                     </span>
                   </div>
                 </div>
               )}
 
               {isEditing ? (
-                <div className="p-3 flex items-center gap-2 bg-[#0a0a0a]/50">
+                <div className="p-3 flex items-end gap-2 bg-[#0a0a0a]/60">
                   <input
                     type="text"
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && saveEdit()}
-                    className="flex-1 bg-[#2a2a2a] text-white px-4 py-2 rounded-xl text-sm outline-none ring-2 ring-transparent focus:ring-[#00d9ff]/50 transition-all"
+                    className="flex-1 bg-[#2a2a2a]/80 text-white px-3.5 py-2.5 rounded-xl text-sm outline-none ring-1 ring-transparent focus:ring-[#00d9ff]/40 transition-all placeholder-gray-500"
                     autoFocus
                     placeholder="Edit message..."
                   />
                   <button
                     onClick={saveEdit}
-                    className="p-2 rounded-lg bg-[#00d9ff]/20 text-[#00d9ff] hover:bg-[#00d9ff]/30 transition-all"
+                    className="p-2 rounded-lg bg-[#00d9ff]/20 text-[#00d9ff] hover:bg-[#00d9ff]/40 transition-all duration-200 flex-shrink-0"
                   >
                     <CheckIcon className="w-4 h-4" />
                   </button>
                   <button
                     onClick={cancelEdit}
-                    className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all"
+                    className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/40 transition-all duration-200 flex-shrink-0"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -286,27 +344,27 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
               ) : (
                 <>
                   {message.image && (
-                    <div className="relative overflow-hidden">
+                    <div className="relative overflow-hidden rounded-b-xl">
                       <img
                         src={message.image}
                         alt="sent"
-                        className="w-full max-h-96 object-cover cursor-pointer hover:scale-[1.02] transition-transform duration-300"
-                        onClick={() => setFullImage(message.image)}
+                        className="w-full max-h-80 object-cover cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+                        onClick={() => !isSelectionMode && setFullImage(message.image)}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     </div>
                   )}
 
                   {message.text && (
                     <p
-                      className={`px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                        isOwn ? "text-black font-medium" : "text-white"
+                      className={`px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                        isOwn ? "text-white font-medium" : "text-gray-100"
                       }`}
                     >
                       {message.text}
                       {message.editedAt && (
-                        <span className="text-xs opacity-70 ml-1.5 italic">
-                          (edited)
+                        <span className="text-xs opacity-70 ml-2 inline-block italic">
+                          edited
                         </span>
                       )}
                     </p>
@@ -315,17 +373,18 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
               )}
             </div>
 
+            {/* Timestamp & Status */}
             <div
-              className={`flex items-center gap-2 px-1 text-xs text-[#666] ${
+              className={`flex items-center gap-1.5 px-1 text-xs font-medium ${
                 isOwn ? "justify-end" : "justify-start"
               }`}
             >
               {isStarred && (
-                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 animate-pulse" />
+                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
               )}
-              <span>{formatTime(message.createdAt)}</span>
+              <span className="text-[#888]">{formatTime(message.createdAt)}</span>
               {isOwn && (
-                <CheckCheck className="w-4 h-4 text-[#00d9ff] opacity-80" />
+                <CheckCheck className="w-3.5 h-3.5 text-[#00d9ff] opacity-90 flex-shrink-0" />
               )}
             </div>
           </div>
@@ -336,7 +395,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             contextMenu={contextMenu}
             contextMenuRef={contextMenuRef}
             message={message}
-            isStarred={isStarred}
+            isStarred={isStarred} 
             onReply={startReply}
             onEdit={handleEdit}
             onStarToggle={handleStarToggle}
@@ -347,6 +406,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             isOwn={isOwn}
             type={type}
             selectedUser={selectedUser}
+            onSelectMode={handleSelectMode}
           />
         )}
 
@@ -363,7 +423,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
         {fullImage && <ImageModal src={fullImage} onClose={() => setFullImage(null)} />}
 
-        <ForwardModal
+        <ForwardModal 
           isOpen={forwardModal.isOpen}
           message={forwardModal.message}
           onForward={handleForwardMessages}

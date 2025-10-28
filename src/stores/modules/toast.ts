@@ -1,20 +1,48 @@
-// src/store/modules/toast.ts
-import { create } from "zustand";
+// stores/useToastStore.ts
+import { create } from 'zustand';
 
-interface ToastState {
-  show: boolean;
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
+
+interface Toast {
+  id: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
-  hideToast: () => void;
+  type: ToastType;
+  duration?: number;
 }
 
-export const useToastStore = create<ToastState>((set) => ({
-  show: false,
-  message: '',
-  type: 'success',
-  showToast: (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
-    set({ show: true, message, type });
+interface ToastState {
+  toasts: Toast[];
+  showToast: (message: string, type?: ToastType, duration?: number) => void;
+  hideToast: (id: string) => void;
+  clearToasts: () => void;
+}
+
+export const useToastStore = create<ToastState>((set, get) => ({
+  toasts: [],
+  
+  showToast: (message: string, type: ToastType = 'success', duration: number = 3000) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newToast: Toast = { id, message, type, duration };
+    
+    set((state) => ({
+      toasts: [...state.toasts, newToast]
+    }));
+
+    // Auto-remove after duration if specified
+    if (duration > 0) {
+      setTimeout(() => {
+        get().hideToast(id);
+      }, duration);
+    }
   },
-  hideToast: () => set({ show: false, message: '', type: 'success' }),
+  
+  hideToast: (id: string) => {
+    set((state) => ({
+      toasts: state.toasts.filter((toast) => toast.id !== id)
+    }));
+  },
+  
+  clearToasts: () => {
+    set({ toasts: [] });
+  }
 }));

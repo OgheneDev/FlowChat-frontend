@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState, useCallback } from "react";
 import { usePrivateChatStore, useGroupStore } from "@/stores";
 import { useAuthStore } from "@/stores/useAuthStore";
 import MessageItem from "./MessageItem";
@@ -10,15 +10,18 @@ interface MessageListProps {
   isLoading: boolean;
   type: "user" | "contact" | "group";
   selectedUser?: any;
+  onSelectionModeChange?: (isSelectionMode: boolean) => void;
+  onSelectedMessagesChange?: (selectedIds: string[]) => void;
 }
 
 export interface MessageListHandle {
-  scrollToMessage: (messageId: string) => void;
+  scrollToMessage: (messageId: string) => void; 
   highlightMessage: (messageId: string) => void;
+  clearSelection: () => void;
 }
 
 const MessageList = forwardRef<MessageListHandle, MessageListProps>(
-  ({ isLoading, type, selectedUser }, ref) => {
+  ({ isLoading, type, selectedUser, onSelectionModeChange, onSelectedMessagesChange }, ref) => {
     const { privateMessages, isSendingMessage: isPrivateSending } = usePrivateChatStore();
     const { groupMessages, isSendingMessage: isGroupSending } = useGroupStore();
     const { authUser } = useAuthStore() as { authUser: { _id: string } | null };
@@ -28,6 +31,36 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const highlightedMessageRef = useRef<string | null>(null);
+    
+    // Selection state
+    const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+    // Use useCallback to prevent unnecessary re-renders
+    const toggleMessageSelection = useCallback((messageId: string) => {
+      setSelectedMessages(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(messageId)) {
+          newSet.delete(messageId);
+        } else {
+          newSet.add(messageId);
+        }
+        return newSet;
+      });
+    }, []);
+
+    // Handle select mode activation
+    const handleSelectMode = useCallback((message: any) => {
+      setIsSelectionMode(true);
+      // Auto-select the message that was right-clicked
+      setSelectedMessages(new Set([message._id]));
+    }, []);
+
+    // Clear all selections
+    const clearSelection = useCallback(() => {
+      setSelectedMessages(new Set());
+      setIsSelectionMode(false);
+    }, []);
 
     // Expose methods to parent component
     useImperativeHandle(ref, () => ({
@@ -38,8 +71,6 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
             behavior: 'smooth', 
             block: 'center' 
           });
-          
-          // Highlight the message
           highlightMessage(messageId);
         } else {
           console.warn('Message element not found:', messageId);
@@ -47,11 +78,11 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       },
       highlightMessage: (messageId: string) => {
         highlightMessage(messageId);
-      }
+      },
+      clearSelection: clearSelection
     }));
 
     const highlightMessage = (messageId: string) => {
-      // Remove previous highlight
       if (highlightedMessageRef.current) {
         const prevElement = messageRefs.current.get(highlightedMessageRef.current);
         if (prevElement) {
@@ -59,13 +90,11 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
         }
       }
 
-      // Add new highlight
       const element = messageRefs.current.get(messageId);
       if (element) {
         element.classList.add('message-highlight');
         highlightedMessageRef.current = messageId;
 
-        // Remove highlight after 3 seconds
         setTimeout(() => {
           if (highlightedMessageRef.current === messageId) {
             element.classList.remove('message-highlight');
@@ -89,6 +118,25 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       }, 100);
       return () => clearTimeout(timer);
     }, [messages]);
+
+    // Enable selection mode when messages are selected
+    useEffect(() => {
+      if (selectedMessages.size > 0 && !isSelectionMode) {
+        setIsSelectionMode(true);
+      } else if (selectedMessages.size === 0 && isSelectionMode) {
+        setIsSelectionMode(false);
+      }
+    }, [selectedMessages.size, isSelectionMode]);
+
+    // Notify parent about selection mode
+    useEffect(() => {
+      onSelectionModeChange?.(isSelectionMode);
+    }, [isSelectionMode, onSelectionModeChange]);
+
+    // Notify parent about selected messages
+    useEffect(() => {
+      onSelectedMessagesChange?.(Array.from(selectedMessages));
+    }, [selectedMessages, onSelectedMessagesChange]);
 
     if (isLoading) {
       return (
@@ -124,7 +172,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }
 
     return (
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent">
+      <div className={`flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent ${isSelectionMode ? 'selection-mode' : ''}`}>
         {messages.map((message: any, index: number) => (
           <MessageItem
             key={message._id}
@@ -135,6 +183,10 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
             messages={messages}
             isSendingMessage={isSendingMessage}
             selectedUser={selectedUser}
+            isSelectionMode={isSelectionMode}
+            isSelected={selectedMessages.has(message._id)}
+            onToggleSelect={toggleMessageSelection}
+            onSelectMode={handleSelectMode} // Pass the handler
             ref={(el) => setMessageRef(message._id, el)}
           />
         ))}
