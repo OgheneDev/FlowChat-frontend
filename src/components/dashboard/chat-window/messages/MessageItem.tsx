@@ -1,12 +1,12 @@
-import React, { useState, forwardRef } from "react";
-import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon, Forward, Check } from "lucide-react";
-import { usePrivateChatStore, useGroupStore, useUIStore, useStarringStore } from "@/stores";
+import React, { useState, forwardRef, useEffect } from "react";
+import { Reply, CheckCheck, Star, X, CheckCheck as CheckIcon, Forward, Check, Pin } from "lucide-react";
+import { usePrivateChatStore, useGroupStore, useUIStore, useStarringStore, usePinningStore } from "@/stores";
 import { formatTime } from "@/utils/utils";
-import useContextMenu from "./useContextMenu";
-import { ImageModal } from "./ImageModal";
-import ContextMenu from "./ContextMenu"; 
-import DeleteModal from "./DeleteModal"; 
-import ForwardModal from "./ForwardModal";
+import useContextMenu from "../useContextMenu";
+import { ImageModal } from "../../../modals/ImageModal";
+import ContextMenu from "../ContextMenu";
+import DeleteModal from "../../../modals/DeleteModal"; 
+import ForwardModal from "../../../modals/ForwardModal";
 
 interface MessageItemProps {
   message: any;
@@ -40,6 +40,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     const { toggleStarMessage, starredMessages } = useStarringStore();
     const { deleteMessage: deletePrivate, editMessage: editPrivate } = usePrivateChatStore();
     const { deleteMessage: deleteGroup, editMessage: editGroup } = useGroupStore();
+    const { isMessagePinned } = usePinningStore();
 
     const [fullImage, setFullImage] = useState<string | null>(null);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -49,12 +50,14 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       isOpen: false,
       message: null
     });
+    const [isLongPressing, setIsLongPressing] = useState(false);
 
     const deleteMessage = type === "group" ? deleteGroup : deletePrivate;
     const editMessage = type === "group" ? editGroup : editPrivate;
     const isStarred = starredMessages.includes(message._id);
+    const isPinned = isMessagePinned(message._id);
 
-    const { contextMenu, setContextMenu, contextMenuRef, showContextMenu, handleTouchStart } = useContextMenu();
+    const { contextMenu, setContextMenu, contextMenuRef, showContextMenu, handleTouchStart, handleTouchMove, handleTouchEnd } = useContextMenu();
 
     const senderId = typeof message.senderId === "string" ? message.senderId : message.senderId?._id;
     const isOwn = senderId === authUser?._id;
@@ -76,7 +79,26 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
       ? senderFullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
       : "?";
 
-    // Handler functions (unchanged)
+    // Handle long press event from useContextMenu
+    useEffect(() => {
+      const handleLongPress = (event: CustomEvent) => {
+        if (event.detail.message._id === message._id && onSelectMode) {
+          setIsLongPressing(true);
+          onSelectMode(event.detail.message);
+          
+          // Reset long press state after animation
+          setTimeout(() => setIsLongPressing(false), 200);
+        }
+      };
+
+      window.addEventListener('messageLongPress', handleLongPress as EventListener);
+      
+      return () => {
+        window.removeEventListener('messageLongPress', handleLongPress as EventListener);
+      };
+    }, [message._id, onSelectMode]);
+
+    // Handler functions
     const closeContextMenu = () => {
       setContextMenu(null);
     };
@@ -146,12 +168,12 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     };
 
     const handleForward = (msg: any) => {
-  setForwardModal({
-    isOpen: true,
-    message: msg
-  });
-  closeContextMenu();
-};
+      setForwardModal({
+        isOpen: true,
+        message: msg
+      });
+      closeContextMenu();
+    };
 
     const handleForwardMessages = async (selectedIds: string[], messageToForward: any) => {
       try {
@@ -184,6 +206,31 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     const handleMessageClick = () => {
       if (isSelectionMode && onToggleSelect) {
         onToggleSelect(message._id);
+      }
+    };
+
+    const handleImageClick = () => {
+      if (!isSelectionMode && message.image) {
+        setFullImage(message.image);
+      }
+    };
+
+    // Custom touch handlers that work with selection mode
+    const handleMessageTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!isSelectionMode) {
+        handleTouchStart(e, message);
+      }
+    };
+
+    const handleMessageTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+      if (!isSelectionMode) {
+        handleTouchMove(e);
+      }
+    };
+
+    const handleMessageTouchEnd = () => {
+      if (!isSelectionMode) {
+        handleTouchEnd();
       }
     };
 
@@ -229,10 +276,15 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
           className={`flex gap-3 group transition-all duration-300 message-item ${
             isSelectionMode ? 'cursor-pointer selectable-message' : ''
           } ${
-            isSelected ? 'bg-[#00d9ff]/5 rounded-xl' : ''
+            isSelected ? 'bg-[#00d9ff]/10 rounded-xl border border-[#00d9ff]/20' : ''
+          } ${
+            isLongPressing ? 'bg-[#00d9ff]/15 scale-[0.98] rounded-xl' : ''
           }`}
           onContextMenu={(e) => showContextMenu(e, message)}
-          onTouchStart={(e) => handleTouchStart(e, message)}
+          onTouchStart={handleMessageTouchStart}
+          onTouchMove={handleMessageTouchMove}
+          onTouchEnd={handleMessageTouchEnd}
+          onTouchCancel={handleMessageTouchEnd}
           onClick={handleMessageClick}
         >
           {/* Selection Checkbox - positioned based on ownership */}
@@ -349,7 +401,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
                         src={message.image}
                         alt="sent"
                         className="w-full max-h-80 object-cover cursor-pointer hover:scale-[1.02] transition-transform duration-300"
-                        onClick={() => !isSelectionMode && setFullImage(message.image)}
+                        onClick={handleImageClick}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                     </div>
@@ -382,14 +434,18 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
               {isStarred && (
                 <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
               )}
+              {isPinned && (
+                <Pin className="w-3 h-3 text-[#00d9ff] fill-[#00d9ff]" />
+              )}
               <span className="text-[#888]">{formatTime(message.createdAt)}</span>
               {isOwn && (
-                <CheckCheck className="w-3.5 h-3.5 text-[#00d9ff] opacity-90 flex-shrink-0" />
+                <Check className="w-3.5 h-3.5 text-[#00d9ff] opacity-90 flex-shrink-0" />
               )}
             </div>
           </div>
         </div>
 
+        {/* Only show context menu on non-mobile devices */}
         {contextMenu && contextMenu.message._id === message._id && (
           <ContextMenu
             contextMenu={contextMenu}

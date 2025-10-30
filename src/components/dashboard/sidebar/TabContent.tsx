@@ -2,10 +2,10 @@
 
 import React, { useEffect } from "react";
 import { SkeletonLoader } from "./SidebarSkeletonLoader";
-import ChatItem from "./ChatItem";
 import { MessageCircle, Users, User, Plus } from "lucide-react";
 import { Tab } from "@/stores";
 import { useStarringStore } from "@/stores";
+import ChatItem from "./ChatItem";
 
 interface TabContentProps {
   isLoading: boolean;

@@ -9,6 +9,11 @@ const useContextMenu = () => {
     message: any;
   } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef({ x: 0, y: 0 });
+
+  // Check if device is mobile
+  const isMobile = typeof window !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   // Handle clicks outside context menu
   useEffect(() => {
@@ -48,6 +53,11 @@ const useContextMenu = () => {
   }, [contextMenu]);
 
   const showContextMenu = (e: ContextEvent, msg: any) => {
+    // On mobile, don't show context menu - use selection mode instead
+    if (isMobile) {
+      return;
+    }
+
     e.preventDefault();
 
     let clientX: number;
@@ -120,12 +130,57 @@ const useContextMenu = () => {
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, msg: any) => {
-    const timeout = setTimeout(() => showContextMenu(e, msg), 600);
-    const cancel = () => clearTimeout(timeout);
-    document.addEventListener("touchend", cancel, { once: true });
+    // Clear any existing timer
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+
+    // Start long press timer
+    longPressTimer.current = setTimeout(() => {
+      // Trigger long press action (will be handled by parent component)
+      const event = new CustomEvent('messageLongPress', { 
+        detail: { message: msg } 
+      });
+      window.dispatchEvent(event);
+      longPressTimer.current = null;
+    }, 500); // 500ms for long press
   };
 
-  return { contextMenu, setContextMenu, contextMenuRef, showContextMenu, handleTouchStart };
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    // Cancel long press if user moves finger too much
+    if (longPressTimer.current) {
+      const touch = e.touches[0];
+      const deltaX = Math.abs(touch.clientX - touchStartPos.current.x);
+      const deltaY = Math.abs(touch.clientY - touchStartPos.current.y);
+      
+      // If moved more than 10px, cancel long press
+      if (deltaX > 10 || deltaY > 10) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // Clear the long press timer if touch ends
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  return { 
+    contextMenu, 
+    setContextMenu, 
+    contextMenuRef, 
+    showContextMenu, 
+    handleTouchStart,
+    handleTouchMove,
+    handleTouchEnd
+  };
 };
 
 export default useContextMenu;

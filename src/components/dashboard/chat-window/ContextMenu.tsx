@@ -1,12 +1,12 @@
 import React from "react";
 import { Reply, Edit2, Star, Trash2, Copy, Forward, Download, Pin, PinOff, CheckSquare } from "lucide-react";
 import { usePinningStore } from "@/stores";
-import { useToastStore } from "@/stores/modules/toast";
+import { useToastStore } from "@/stores";
 
 interface ContextMenuProps {
   contextMenu: { x: number; y: number; message: any };
   contextMenuRef: React.RefObject<HTMLDivElement | null>;
-  message: any;
+  message: any; 
   isStarred: boolean;
   onReply: (msg: any) => void;
   onEdit: (msg: any) => void;

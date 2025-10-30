@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore, useStarringStore } from '@/stores';
 import { Tab } from '@/stores';
-import { useAuthStore } from '@/stores/useAuthStore';
+import { useAuthStore } from '@/stores';
 import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
-import { TabContent } from './TabContent';
-import { Toast } from '../ui/toast';
+import { TabContent } from './sidebar/TabContent';
+import { useToastStore } from '@/stores';
 import Swal from 'sweetalert2';
 
 interface AuthUser {
@@ -16,9 +16,6 @@ interface AuthUser {
 const ChatSidebar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
@@ -34,6 +31,9 @@ const ChatSidebar = () => {
 
   // Auth Store
   const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as any;
+
+  // Toast Store
+  const { showToast } = useToastStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,13 +57,6 @@ useEffect(() => {
       getMyGroups();
     }
   }, [authUser, getAllContacts, getChatPartners, getMyGroups]);
-
-  useEffect(() => {
-    if (showToast) {
-      const timer = setTimeout(() => setShowToast(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [showToast]);
 
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab);
@@ -130,14 +123,9 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
 
       try {
         await updateProfile({ profilePic: base64Image });
-        setToastMessage('Profile picture updated successfully!');
-        setToastType('success');
-        setShowToast(true);
+        showToast("Profile picture updated successfully", "success");
       } catch (error) {
-        setSelectedImg(authUser?.profilePic || null);
-        setToastMessage('Failed to update profile picture.');
-        setToastType('error');
-        setShowToast(true);
+        showToast("Failed to update profile picture.", "error")
       }
     };
   };
@@ -277,15 +265,6 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
           filteredGroups={filteredGroups}
         />
       </div>
-
-      {/* Toast */}
-      <Toast
-        show={showToast}
-        message={toastMessage}
-        type={toastType}
-        onClose={() => setShowToast(false)}
-        duration={3000}
-      />
     </div>
   );
 };

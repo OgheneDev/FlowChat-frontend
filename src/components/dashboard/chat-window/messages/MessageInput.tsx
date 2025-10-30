@@ -7,7 +7,7 @@ import {
   useGroupStore,
   useUIStore,
 } from "@/stores"; // Only from index.ts
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useAuthStore } from "@/stores";
 
 interface MessageInputProps {
   receiverId: string;

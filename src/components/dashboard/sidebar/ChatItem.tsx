@@ -3,7 +3,7 @@ import { User, Image, Star, Loader2 } from "lucide-react";
 import { formatTime } from "@/utils/utils";
 import { MessageStatus } from "./MessageStatus";
 import { useUIStore, useStarringStore } from "@/stores";
-import { Toast } from "../ui/toast";
+import { useToastStore } from "@/stores";
 
 interface ChatItemProps {
   item: any;
@@ -13,12 +13,7 @@ interface ChatItemProps {
 const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   const { toggleStarChat, starredChats, isStarring } = useStarringStore();
   const { setSelectedUser } = useUIStore(); 
-  const [toast, setToast] = useState({ 
-    show: false, 
-    message: '', 
-    type: 'success' as 'success' | 'error' | 'info' | 'warning' 
-  });
-
+  const { showToast } = useToastStore();
   const displayName = type === "group" ? item.name : item.fullName;
   const image = type === "group" ? item.groupImage : item.profilePic;
   const isStarred = starredChats?.includes(item._id);
@@ -34,19 +29,9 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
     
     try {
       await toggleStarChat(payload);
-      // Show success toast
-      setToast({ 
-        show: true, 
-        message: isStarred ? "Chat unstarred" : "Chat starred", 
-        type: 'success' 
-      });
+      showToast(isStarred ? "Chat unstarred" : "Chat starred", "success")
     } catch (error: any) {
-      // Show error toast
-      setToast({ 
-        show: true, 
-        message: error?.message || "Failed to star/unstar chat", 
-        type: 'error' 
-      });
+      showToast("Failed to star/unstar chat", "error")
     }
   };
 
@@ -123,14 +108,6 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
           </button>
         </div>
       </div>
-
-      <Toast 
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(prev => ({ ...prev, show: false }))}
-        duration={3000}
-      />
     </>
   );
 };

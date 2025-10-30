@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useAuthStore } from "@/stores";
 import { usePathname, useRouter } from "next/navigation";
 
 export default function ClientLayout({

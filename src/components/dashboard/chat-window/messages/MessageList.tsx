@@ -2,9 +2,9 @@
 
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState, useCallback } from "react";
 import { usePrivateChatStore, useGroupStore } from "@/stores";
-import { useAuthStore } from "@/stores/useAuthStore";
+import { useAuthStore } from "@/stores";
 import MessageItem from "./MessageItem";
-import MessageSkeleton from "./MessageSkeleton";
+import MessageSkeleton from "./MessageSkeleton"; 
 
 interface MessageListProps {
   isLoading: boolean;
