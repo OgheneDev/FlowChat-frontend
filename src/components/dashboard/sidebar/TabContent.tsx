@@ -1,21 +1,35 @@
+// In your TabContent component
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { SkeletonLoader } from "./SidebarSkeletonLoader";
 import { MessageCircle, Users, User, Plus } from "lucide-react";
 import { Tab } from "@/stores";
 import { useStarringStore } from "@/stores";
 import ChatItem from "./ChatItem";
+import CreateGroupModal from "@/components/modals/CreateGroupModal";
 
 interface TabContentProps {
   isLoading: boolean;
-  activeTab: Tab;
+  activeTab: Tab; 
   filteredChats: any[];
   filteredContacts: any[];
   filteredGroups: any[];
 }
 
-const EmptyState = ({ title, description, icon: Icon, activeTab }: { title: string; description: string; icon: React.ReactNode; activeTab: Tab }) => {
+const EmptyState = ({ 
+  title, 
+  description, 
+  icon: Icon, 
+  activeTab,
+  onCreateGroup 
+}: { 
+  title: string; 
+  description: string; 
+  icon: React.ReactNode; 
+  activeTab: Tab;
+  onCreateGroup?: () => void;
+}) => {
   return (
     <div className="relative flex flex-col items-center justify-center h-64 text-center px-6">
       <div className="p-4 bg-[#1e1e1e] rounded-full mb-4">
@@ -35,13 +49,13 @@ const EmptyState = ({ title, description, icon: Icon, activeTab }: { title: stri
       )}
       {activeTab === "groups" && (
         <button
+          onClick={onCreateGroup}
           className="mt-4 bg-[#00d9ff] text-black cursor-pointer px-4 py-2 rounded-full shadow-md hover:bg-[#00c4e6] transition-colors text-sm font-medium"
           aria-label="Create a new group"
         >
           Create group
         </button>
       )}
-      {/* No button for contacts as per request */}
     </div>
   );
 };
@@ -54,6 +68,7 @@ export const TabContent: React.FC<TabContentProps> = ({
   filteredGroups,
 }) => {
   const { loadStarredData, isLoading: isStarredLoading } = useStarringStore();
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
   // Load starred data when component mounts
   useEffect(() => {
@@ -97,14 +112,51 @@ export const TabContent: React.FC<TabContentProps> = ({
     };
  
     const config = emptyConfig[activeTab];
-    return <EmptyState {...config} activeTab={activeTab} />;
+    return (
+      <>
+        <EmptyState 
+          {...config} 
+          activeTab={activeTab}
+          onCreateGroup={activeTab === "groups" ? () => setIsCreateGroupModalOpen(true) : undefined}
+        />
+        
+        <CreateGroupModal 
+          isOpen={isCreateGroupModalOpen}
+          onClose={() => setIsCreateGroupModalOpen(false)}
+        />
+      </>
+    );
   }
 
   return (
-    <div className="divide-y divide-[#2a2a2a]">
-      {data.map((item: any) => (
-        <ChatItem key={item._id} item={item} type={activeTab === "groups" ? "group" : activeTab === "contacts" ? "contact" : "user"} />
-      ))}
-    </div>
+    <>
+      <div className="divide-y divide-[#2a2a2a]">
+        {data.map((item: any) => (
+          <ChatItem key={item._id} item={item} type={activeTab === "groups" ? "group" : activeTab === "contacts" ? "contact" : "user"} />
+        ))}
+      </div>
+      
+      <CreateGroupModal 
+        isOpen={isCreateGroupModalOpen}
+        onClose={() => setIsCreateGroupModalOpen(false)}
+      />
+
+      {activeTab === "groups" && (
+  <>
+    <button
+      onClick={() => setIsCreateGroupModalOpen(true)}
+      className="fixed bottom-6 right-6 bg-[#00d9ff] text-black p-4 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors cursor-pointer z-10"
+      aria-label="Create new group"
+    >
+      <Plus className="w-6 h-6" />
+    </button>
+    
+    <CreateGroupModal 
+      isOpen={isCreateGroupModalOpen}
+      onClose={() => setIsCreateGroupModalOpen(false)}
+    />
+  </>
+)}
+    </>
   );
 };
