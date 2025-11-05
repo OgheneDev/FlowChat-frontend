@@ -145,7 +145,7 @@ export const TabContent: React.FC<TabContentProps> = ({
   <>
     <button
       onClick={() => setIsCreateGroupModalOpen(true)}
-      className="fixed bottom-6 right-6 bg-[#00d9ff] text-black p-4 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors cursor-pointer z-10"
+      className="fixed bottom-6 right-6 md:hidden bg-[#00d9ff] text-black p-4 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors cursor-pointer z-10"
       aria-label="Create new group"
     >
       <Plus className="w-6 h-6" />

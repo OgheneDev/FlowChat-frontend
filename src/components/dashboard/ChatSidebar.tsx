@@ -4,10 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore, useStarringStore } from '@/stores';
 import { Tab } from '@/stores';
 import { useAuthStore } from '@/stores';
-import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
+import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle, SquarePen, Icon } from 'lucide-react';
 import { TabContent } from './sidebar/TabContent';
 import { useToastStore } from '@/stores';
 import ConfirmModal from './sidebar/ConfirmModal';
+import CreateGroupModal from '../modals/CreateGroupModal';
 
 interface AuthUser {
   profilePic?: string;
@@ -17,6 +18,7 @@ const ChatSidebar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
@@ -134,8 +136,12 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
   const getProfileImage = () => selectedImg || authUser?.profilePic;
 
   const handleLogout = () => {
-  setShowLogoutModal(true);
-};
+    setShowLogoutModal(true);
+  };
+
+  const handleOpenModal = () => {
+    setIsCreateGroupModalOpen(true)
+  }
 
 const performLogout = () => {
   logout();
@@ -187,6 +193,7 @@ const performLogout = () => {
             { Icon: Bell, label: "Notifications" },
             { Icon: Settings, label: "Settings" },
             { Icon: LogOut, label: "Logout", onClick: handleLogout },
+            { Icon: SquarePen, label: "Create Group", onClick: handleOpenModal}
           ].map(({ Icon, label, onClick }) => (
             <button
               key={label}
@@ -266,6 +273,11 @@ const performLogout = () => {
        onConfirm={performLogout}
        onClose={() => setShowLogoutModal(false)}
       />
+
+      <CreateGroupModal 
+      isOpen={isCreateGroupModalOpen}
+      onClose={() => setIsCreateGroupModalOpen(false)}
+    />
     </div>
   );
 };

@@ -1,9 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { User, Image, Star, Loader2 } from "lucide-react";
 import { formatTime } from "@/utils/utils";
 import { MessageStatus } from "./MessageStatus";
-import { useUIStore, useStarringStore } from "@/stores";
-import { useToastStore } from "@/stores";
+import { useUIStore, useStarringStore, useAuthStore, useToastStore } from "@/stores";
 
 interface ChatItemProps {
   item: any;
@@ -14,6 +13,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   const { toggleStarChat, starredChats, isStarring } = useStarringStore();
   const { setSelectedUser } = useUIStore(); 
   const { showToast } = useToastStore();
+  const { authUser } = useAuthStore() as any;
   const displayName = type === "group" ? item.name : item.fullName;
   const image = type === "group" ? item.groupImage : item.profilePic;
   const isStarred = starredChats?.includes(item._id);
@@ -36,22 +36,50 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   };
 
   const getLastMessagePreview = () => {
-  if (!item.lastMessage) return <span className="italic">No messages yet</span>;
+    if (!item.lastMessage) return <span className="italic">No messages yet</span>;
 
-  // NEW: check the deleted flag first
-  if (item.lastMessage.deletedForEveryone) {
-    return <span className="italic text-[#999999]">This message was deleted</span>;
-  }
+    // Check the deleted flag first
+    if (item.lastMessage.deletedForEveryone) {
+      return <span className="italic text-[#999999]">This message was deleted</span>;
+    }
 
-  const { text, image } = item.lastMessage;
-  if (text) return text;
-  if (image) return (
-    <span className="flex items-center gap-1 text-[#999999]">
-      <Image className="w-3 h-3" /> Photo
-    </span>
-  );
-  return "No messages";
-};
+    const { text, image, senderId } = item.lastMessage;
+    
+    // For groups, show sender prefix
+    if (type === "group") {
+      const isMyMessage = authUser && senderId && senderId._id === authUser._id;
+      const senderPrefix = isMyMessage ? "You: " : `${senderId?.fullName || 'Someone'}: `;
+      
+      if (text) return `${senderPrefix}${text}`;
+      if (image) return (
+        <span className="flex items-center gap-1 text-[#999999]">
+          {senderPrefix}
+          <Image className="w-3 h-3" /> Photo
+        </span>
+      );
+      return `${senderPrefix}No messages`;
+    }
+
+    // For user chats (non-group)
+    if (text) return text;
+    if (image) return (
+      <span className="flex items-center gap-1 text-[#999999]">
+        <Image className="w-3 h-3" /> Photo
+      </span>
+    );
+    return "No messages";
+  };
+
+  const getChatPreview = () => {
+    if (type === "contact") {
+      return "Tap to message";
+    }
+    return getLastMessagePreview();
+  };
+
+  const shouldShowMessageMetadata = () => {
+    return type === "user" || type === "group";
+  };
 
   return (
     <>
@@ -80,15 +108,15 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
             {isStarred && <Star className="w-3.5 h-3.5 text-[#00d9ff] fill-[#00d9ff] flex-shrink-0" />}
           </div>
           <p className="text-xs text-[#999999] truncate mt-0.5">
-            {type === "user" ? getLastMessagePreview() : type === "contact" ? "Tap to message" : "Group chat"}
+            {getChatPreview()}
           </p>
         </div>
 
         <div className="flex flex-col items-end gap-1 text-right">
-          {type === "user" && item.lastMessage && (
+          {shouldShowMessageMetadata() && item.lastMessage && (
             <>
               <span className="text-xs text-[#999999]">{formatTime(item.lastMessage.createdAt)}</span>
-              <MessageStatus status={item.lastMessage.status} />
+              {type === "user" && <MessageStatus status={item.lastMessage.status} />}
             </>
           )}
           
