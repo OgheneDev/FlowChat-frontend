@@ -14,7 +14,7 @@ export const useContactStore = create<ContactState>((set) => ({
     set({ isLoading: true });
     try {
       const { data } = await axiosInstance.get("/messages/contacts");
-      set({ contacts: data });
+      set({ contacts: data }); 
       return data;
     } catch (error: any) {
       throw new Error(error?.response?.data?.message || "Error fetching contacts");

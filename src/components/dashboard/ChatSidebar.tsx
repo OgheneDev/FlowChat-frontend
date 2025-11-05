@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores';
 import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle } from 'lucide-react';
 import { TabContent } from './sidebar/TabContent';
 import { useToastStore } from '@/stores';
-import Swal from 'sweetalert2';
+import ConfirmModal from './sidebar/ConfirmModal';
 
 interface AuthUser {
   profilePic?: string;
@@ -16,6 +16,7 @@ interface AuthUser {
 const ChatSidebar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
@@ -133,24 +134,13 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
   const getProfileImage = () => selectedImg || authUser?.profilePic;
 
   const handleLogout = () => {
-    Swal.fire({
-      title: 'Log out?',
-      text: 'You will be signed out of your account.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Log out',
-      cancelButtonText: 'Cancel',
-      background: '#1e1e1e',
-      color: '#F9FAFB',
-      confirmButtonColor: '#06B6D4',
-      cancelButtonColor: '#ef4444',
-      customClass: {
-        popup: 'border border-[#2a2a2a] rounded-xl',
-      }
-    }).then((result) => {
-      if (result.isConfirmed) logout();
-    });
-  };
+  setShowLogoutModal(true);
+};
+
+const performLogout = () => {
+  logout();
+  setShowLogoutModal(false);
+};
 
   const isLoading = isContactsLoading || isChatsLoading || isGroupsLoading;
 
@@ -265,6 +255,17 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
           filteredGroups={filteredGroups}
         />
       </div>
+
+      <ConfirmModal
+       isOpen={showLogoutModal}
+       title="Log out?"
+       message="You will be signed out of your account. Any unsaved changes may be lost."
+       confirmText="Log out"
+       cancelText="Stay logged in"
+       variant="danger"
+       onConfirm={performLogout}
+       onClose={() => setShowLogoutModal(false)}
+      />
     </div>
   );
 };

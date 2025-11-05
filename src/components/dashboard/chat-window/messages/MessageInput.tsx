@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, X, Reply } from "lucide-react";
+import { Send, X, Reply, ImageIcon } from "lucide-react";
 import {
   usePrivateChatStore,
   useGroupStore,
   useUIStore,
-} from "@/stores"; // Only from index.ts
+} from "@/stores";
 import { useAuthStore } from "@/stores";
 
 interface MessageInputProps {
@@ -131,7 +131,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       {/* Input Area */}
       <div className="flex items-end gap-2">
         <label className="p-2 hover:bg-[#2a2a2a] rounded-lg cursor-pointer transition-colors">
-          <Paperclip className="w-5 h-5 text-[#999]" />
+          <ImageIcon className="w-5 h-5 text-[#999]" />
           <input
             ref={fileInputRef}
             type="file"

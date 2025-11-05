@@ -20,7 +20,7 @@ interface ChatWindowProps {
 
 const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   const { privateMessages, isMessagesLoading, getPrivateMessages } = usePrivateChatStore();
-  const { groupMessages, getGroupMessages } = useGroupStore();
+  const { groupMessages, getGroupMessages, getGroupById, currentGroup } = useGroupStore(); 
   const { setSelectedUser } = useUIStore();
   const { pinnedMessages, loadPinnedMessagesForChat } = usePinningStore();
   const { showToast } = useToastStore();

@@ -13,7 +13,7 @@ interface User {
   email: string;
   online?: boolean;
 }
-
+ 
 interface Message {
   _id: string;
   text?: string;
@@ -56,12 +56,14 @@ interface CreateGroupData {
   name: string;
   members: string[];
   groupImage?: string;
-}
+  description: string;
+} 
 
 interface UpdateGroupData {
   name?: string;
   newImage?: string;
   members?: string[];
+  description?: string; 
 }
 
 /* -------------------------------------------------------------------------- */
@@ -126,6 +128,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await axiosInstance.get("/groups/my-groups");
+      console.log("Groups:", data)
       set({ groups: data });
       return data;
     } catch (error: any) {
@@ -139,6 +142,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await axiosInstance.get(`/groups/${groupId}`);
+      console.log("Group:", data)
       set({ currentGroup: data });
       return data;
     } catch (error: any) {
@@ -229,7 +233,7 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     set({ isManagingMembers: true });
     try {
       const { data: updatedGroup } = await axiosInstance.post(
-        `/groups/${groupId}/members`,
+        `/groups/${groupId}/add-members`,
         { members }
       );
       
