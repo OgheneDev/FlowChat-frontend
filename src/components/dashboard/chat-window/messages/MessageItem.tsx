@@ -280,7 +280,6 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
           } ${
             isLongPressing ? 'bg-[#00d9ff]/15 scale-[0.98] rounded-xl' : ''
           }`}
-          onContextMenu={(e) => showContextMenu(e, message)}
           onTouchStart={handleMessageTouchStart}
           onTouchMove={handleMessageTouchMove}
           onTouchEnd={handleMessageTouchEnd}
@@ -343,6 +342,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
             {/* Main Message Bubble */}
             <div
+              onContextMenu={(e) => showContextMenu(e, message)}
               className={`relative rounded-2xl overflow-hidden transition-all duration-400 max-w-[70%] sm:max-w-[60%] ${
                 isOwn
                   ? "bg-gradient-to-r from-[#00d9ff] to-[#0099cc] shadow-lg shadow-[#00d9ff]/25 rounded-br-md"
