@@ -199,6 +199,7 @@ const performLogout = () => {
               key={label}
               onClick={onClick}
               aria-label={label}
+              title={label}
               className="p-2 rounded-lg cursor-pointer hover:bg-[#1e1e1e] transition-all duration-200 group"
             >
               <Icon className="w-5 h-5 text-[#999999] group-hover:text-white transition-colors" />
