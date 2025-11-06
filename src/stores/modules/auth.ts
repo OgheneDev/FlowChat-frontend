@@ -35,6 +35,7 @@ interface AuthStore {
   socket: Socket | null;
   onlineUsers: string[];
   isUserOnline: (userId: string) => boolean;
+  isCurrentUserOnline: () => boolean;
 
   checkAuth: () => Promise<void>;
   signup: (data: SignupData) => Promise<AuthUser>;
@@ -143,6 +144,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   isUserOnline: (userId: string) => {
-    return get().onlineUsers.includes(userId);
+    const { authUser, onlineUsers } = get();
+    // For current user, check socket connection
+    if (authUser?._id === userId) {
+      return get().socket?.connected || false;
+    }
+    // For other users, check onlineUsers array
+    return onlineUsers.includes(userId);
+  },
+
+  isCurrentUserOnline: () => {
+    return get().socket?.connected || false;
   },
 }));
