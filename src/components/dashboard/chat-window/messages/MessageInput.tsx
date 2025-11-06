@@ -25,7 +25,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const { sendPrivateMessage, isSendingMessage: isPrivateSending } = usePrivateChatStore();
   const { sendGroupMessage, isSendingMessage: isGroupSending } = useGroupStore();
   const { replyingTo, clearReply } = useUIStore();
-  const { authUser } = useAuthStore() as any;
+  const { authUser } = useAuthStore();
 
   const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
 

@@ -3,6 +3,7 @@ import { ArrowLeft, Users, Pin } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import GroupInfoModal from './GroupInfoModal';
+import { useAuthStore } from '@/stores';
 
 interface ChatHeaderProps {
   selectedUser: any;
@@ -22,11 +23,12 @@ const ChatHeader = ({
   onBack,
 }: ChatHeaderProps) => {
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const { isUserOnline } = useAuthStore();
   
   const profilePic = selectedUser?.profilePic || selectedUser?.groupImage;
   const displayName = type === 'group' ? selectedUser?.name : selectedUser?.fullName;
   const memberCount = selectedUser?.members?.length || 0;
-  const isOnline = Boolean(selectedUser?.isOnline);
+  const online = type !== 'group' && isUserOnline(selectedUser?._id);
   const initials = displayName?.charAt(0).toUpperCase() || '?';
 
   const handleGroupInfoClick = () => {
@@ -78,7 +80,7 @@ const ChatHeader = ({
                     </div>
                   )}
                 </div>
-                {type !== 'group' && isOnline && (
+                {type !== 'group' && online && (
                   <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#00ff88] border-2 border-[#1e1e1e] rounded-full animate-pulse"></span>
                 )}
               </div>
@@ -87,7 +89,7 @@ const ChatHeader = ({
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-white truncate text-base">{displayName || 'Unknown'}</h3>
                 <p className="text-xs text-[#00d9ff] font-medium">
-                  {type === 'group' ? `${memberCount} members` : isOnline ? 'Active now' : 'Offline'}
+                  {type === 'group' ? `${memberCount} members` : online ? 'Active now' : 'Offline'}
                 </p>
               </div>
             </div>

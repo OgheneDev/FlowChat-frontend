@@ -19,7 +19,7 @@ const LoginPage = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const {login, isLoggingIn} = useAuthStore() as any
+  const {login, isLoggingIn} = useAuthStore();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target

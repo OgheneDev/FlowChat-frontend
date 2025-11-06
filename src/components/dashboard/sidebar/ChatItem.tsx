@@ -13,7 +13,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   const { toggleStarChat, starredChats, isStarring } = useStarringStore();
   const { setSelectedUser } = useUIStore(); 
   const { showToast } = useToastStore();
-  const { authUser } = useAuthStore() as any;
+  const { authUser } = useAuthStore();
   const displayName = type === "group" ? item.name : item.fullName;
   const image = type === "group" ? item.groupImage : item.profilePic;
   const isStarred = starredChats?.includes(item._id);

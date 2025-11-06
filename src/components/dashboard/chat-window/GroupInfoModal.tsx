@@ -33,7 +33,7 @@ const GroupInfoModal = ({ isOpen, onClose, group }: GroupInfoModalProps) => {
   
   const { updateGroup, leaveGroup, deleteGroup, addMembersToGroup, removeMemberFromGroup, makeGroupAdmin } = useGroupStore();
   const { setSelectedUser } = useUIStore();
-  const { authUser } = useAuthStore() as any;
+  const { authUser } = useAuthStore();
   const { contacts, getAllContacts, isLoading: contactsLoading } = useContactStore();
   const { showToast } = useToastStore();
   const nameInputRef = useRef<HTMLInputElement>(null);

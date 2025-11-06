@@ -35,7 +35,7 @@ const SignUpPage = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const { signup, isSigningUp } = useAuthStore() as any;
+  const { signup, isSigningUp } = useAuthStore();
 
   const validatePassword = (pass: string) => {
     setPasswordChecks({

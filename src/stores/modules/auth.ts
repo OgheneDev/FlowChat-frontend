@@ -1,89 +1,148 @@
 import { create } from "zustand";
 import { axiosInstance } from "@/api/axios";
+import { io, Socket } from "socket.io-client";
 
-interface signupData {
-    email: string,
-    fullName: string,
-    password: string,
+const BASE_URL = "https://flowchat-81ni.onrender.com";
+
+interface SignupData {
+  email: string;
+  fullName: string;
+  password: string;
 }
 
-interface loginData {
-    email: string,
-    password: string
+interface LoginData {
+  email: string;
+  password: string;
 }
 
-interface updateProfileData {
-    profileImg: string
+interface UpdateProfileData {
+  profilePic?: string;
 }
 
+interface AuthUser {
+  _id: string;
+  email: string;
+  fullName: string;
+  profilePic?: string;
+}
 
-export const useAuthStore = create((set) => ({
-    authUser: null,
-    isCheckingAuth: true,
-    isSigningUp: false,
-    isLoggingIn: false,
-    isUpdating: false,
+interface AuthStore {
+  authUser: AuthUser | null;
+  isCheckingAuth: boolean;
+  isSigningUp: boolean;
+  isLoggingIn: boolean;
+  isUpdating: boolean;
+  socket: Socket | null;
+  onlineUsers: string[];
+  isUserOnline: (userId: string) => boolean;
 
-    checkAuth: async () => {
-        try {
-            const response = await axiosInstance.get("/auth/check");
-            console.log("Auth check:", response)
-            set({ authUser: response.data }); 
-        } catch (error) {
-            console.log("Error in authentication check:", error);
-            set({ authUser: null });
-        } finally {
-            set({ isCheckingAuth: false });
-        }
-    },
+  checkAuth: () => Promise<void>;
+  signup: (data: SignupData) => Promise<AuthUser>;
+  login: (data: LoginData) => Promise<AuthUser>;
+  logout: () => Promise<void>;
+  updateProfile: (data: UpdateProfileData) => Promise<void>;
+  connectSocket: () => void;
+  disconnectSocket: () => void;
+}
 
-    signup: async (data: signupData) => {
-        set({isSigningUp: true});
-        try {
-            const response = await axiosInstance.post("/auth/signup", data);
-            set({authUser: response.data});
-            return response.data;
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.message || "Error creating account";
-            throw new Error(errorMessage);
-        } finally {
-            set({isSigningUp: false});
-        }
-    },
+export const useAuthStore = create<AuthStore>((set, get) => ({
+  authUser: null,
+  isCheckingAuth: true,
+  isSigningUp: false,
+  isLoggingIn: false,
+  isUpdating: false,
+  socket: null,
+  onlineUsers: [],
 
-    login: async (data: loginData) => {
-        set({isLoggingIn: true});
-        try {
-            const response = await axiosInstance.post("/auth/login", data);
-            set({authUser: response.data});
-            return response.data
-        } catch (error: any) {
-            const errorMessage = error?.response?.data?.message || "Error logging in";
-            throw new Error(errorMessage);
-        } finally {
-            set({isLoggingIn: false});
-        }
-    },
+  checkAuth: async () => {
+    try {
+      const response = await axiosInstance.get("/auth/check");
+      console.log("Auth check:", response);
+      set({ authUser: response.data });
+      get().connectSocket();
+    } catch (error) {
+      console.log("Error in authentication check:", error);
+      set({ authUser: null });
+    } finally {
+      set({ isCheckingAuth: false });
+    }
+  },
 
-    logout: async () => {
+  signup: async (data) => {
+    set({ isSigningUp: true });
+    try {
+      const response = await axiosInstance.post("/auth/signup", data);
+      set({ authUser: response.data });
+      get().connectSocket();
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || "Error creating account";
+      throw new Error(errorMessage);
+    } finally {
+      set({ isSigningUp: false });
+    }
+  },
+
+  login: async (data) => {
+    set({ isLoggingIn: true });
+    try {
+      const response = await axiosInstance.post("/auth/login", data);
+      set({ authUser: response.data });
+      get().connectSocket();
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || "Error logging in";
+      throw new Error(errorMessage);
+    } finally {
+      set({ isLoggingIn: false });
+    }
+  },
+
+  logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
       set({ authUser: null });
+      get().disconnectSocket();
     } catch (error) {
       console.log("Logout error:", error);
     }
-    },
+  },
 
-    updateProfile: async (data: updateProfileData) => {
-        set({isUpdating: true})
-        try {
-         const res = await axiosInstance.put("/auth/update-profile", data);
-         set({ authUser: res.data });
-        } catch (error) {
-          console.log("Error in update profile:", error);
-        } finally {
-          set({isUpdating: false})
-       }
-    },
+  updateProfile: async (data) => {
+    set({ isUpdating: true });
+    try {
+      const res = await axiosInstance.put("/auth/update-profile", data);
+      set({ authUser: res.data });
+    } catch (error) {
+      console.log("Error in update profile:", error);
+    } finally {
+      set({ isUpdating: false });
+    }
+  },
 
+  connectSocket: () => {
+    const { authUser } = get();
+    if (!authUser || get().socket?.connected) return;
+
+    const socket = io(BASE_URL, {
+      withCredentials: true,
+    });
+
+    socket.connect();
+
+    set({ socket });
+
+    socket.on("getOnlineUsers", (userIds: string[]) => {
+      set({ onlineUsers: userIds });
+    });
+  },
+
+  disconnectSocket: () => {
+    const socket = get().socket;
+    if (socket?.connected) socket.disconnect();
+  },
+
+  isUserOnline: (userId: string) => {
+    return get().onlineUsers.includes(userId);
+  },
 }));

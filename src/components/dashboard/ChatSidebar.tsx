@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUIStore, useContactStore, useGroupStore, usePrivateChatStore, useStarringStore } from '@/stores';
 import { Tab } from '@/stores';
 import { useAuthStore } from '@/stores';
-import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle, SquarePen, Icon } from 'lucide-react';
+import { Bell, Settings, LogOut, Search, X, User, Camera, Users, MessageCircle, SquarePen } from 'lucide-react';
 import { TabContent } from './sidebar/TabContent';
 import { useToastStore } from '@/stores';
 import ConfirmModal from './sidebar/ConfirmModal';
 import CreateGroupModal from '../modals/CreateGroupModal';
+import SettingsModal from '../modals/SettingsModal';
 
 interface AuthUser {
   profilePic?: string;
@@ -19,6 +20,7 @@ const ChatSidebar = () => {
   const [selectedImg, setSelectedImg] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
@@ -33,7 +35,7 @@ const ChatSidebar = () => {
   const { groups, isLoading: isGroupsLoading, getMyGroups } = useGroupStore();
 
   // Auth Store
-  const { logout, authUser, updateProfile, isUpdating } = useAuthStore() as any;
+  const { logout, authUser, updateProfile, isUpdating } = useAuthStore();
 
   // Toast Store
   const { showToast } = useToastStore();
@@ -139,14 +141,18 @@ const filteredGroups = filterList(groups || [], ['name'], 'groups');
     setShowLogoutModal(true);
   };
 
-  const handleOpenModal = () => {
+  const handleOpenCreateGroupModal = () => {
     setIsCreateGroupModalOpen(true)
   }
 
-const performLogout = () => {
-  logout();
-  setShowLogoutModal(false);
-};
+  const handleOpenSettingsModal = () => {
+    setIsSettingsModalOpen(true)
+  }
+
+  const performLogout = () => {
+   logout();
+   setShowLogoutModal(false);
+  };
 
   const isLoading = isContactsLoading || isChatsLoading || isGroupsLoading;
 
@@ -191,9 +197,9 @@ const performLogout = () => {
         <div className="flex gap-1.5">
           {[
             { Icon: Bell, label: "Notifications" },
-            { Icon: Settings, label: "Settings" },
+            { Icon: Settings, label: "Settings", onClick: handleOpenSettingsModal },
             { Icon: LogOut, label: "Logout", onClick: handleLogout },
-            { Icon: SquarePen, label: "Create Group", onClick: handleOpenModal}
+            { Icon: SquarePen, label: "Create Group", onClick: handleOpenCreateGroupModal}
           ].map(({ Icon, label, onClick }) => (
             <button
               key={label}
@@ -265,20 +271,25 @@ const performLogout = () => {
       </div>
 
       <ConfirmModal
-       isOpen={showLogoutModal}
-       title="Log out?"
-       message="You will be signed out of your account. Any unsaved changes may be lost."
-       confirmText="Log out"
-       cancelText="Stay logged in"
-       variant="danger"
-       onConfirm={performLogout}
-       onClose={() => setShowLogoutModal(false)}
+        isOpen={showLogoutModal}
+        title="Log out?"
+        message="You will be signed out of your account. Any unsaved changes may be lost."
+        confirmText="Log out"
+        cancelText="Stay logged in"
+        variant="danger"
+        onConfirm={performLogout}
+        onClose={() => setShowLogoutModal(false)}
       />
 
       <CreateGroupModal 
-      isOpen={isCreateGroupModalOpen}
-      onClose={() => setIsCreateGroupModalOpen(false)}
-    />
+        isOpen={isCreateGroupModalOpen}
+        onClose={() => setIsCreateGroupModalOpen(false)}
+      />
+
+      <SettingsModal 
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+      />
     </div>
   );
 };
