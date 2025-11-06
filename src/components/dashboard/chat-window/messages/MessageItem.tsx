@@ -439,8 +439,18 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
               )}
               <span className="text-[#888]">{formatTime(message.createdAt)}</span>
               {isOwn && (
-                <Check className="w-3.5 h-3.5 text-[#00d9ff] opacity-90 flex-shrink-0" />
-              )}
+    <>
+      {message.status === 'sent' && (
+        <Check className="w-3.5 h-3.5 text-gray-400 opacity-90 flex-shrink-0" />
+      )}
+      {message.status === 'delivered' && (
+        <CheckCheck className="w-3.5 h-3.5 text-gray-400 opacity-90 flex-shrink-0" />
+      )}
+      {message.status === 'seen' && (
+        <CheckCheck className="w-3.5 h-3.5 text-[#00d9ff] opacity-90 flex-shrink-0" />
+      )}
+    </>
+  )}
             </div>
           </div>
         </div>

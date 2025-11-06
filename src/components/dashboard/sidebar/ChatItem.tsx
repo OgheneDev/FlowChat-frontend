@@ -81,6 +81,19 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
     return type === "user" || type === "group";
   };
 
+  // Check if the last message was sent by the authenticated user
+  const isLastMessageFromAuthUser = () => {
+    if (!item.lastMessage || !authUser) return false;
+    
+    // For group chats, check the senderId structure
+    if (type === "group") {
+      return item.lastMessage.senderId?._id === authUser._id;
+    }
+    
+    // For user chats
+    return item.lastMessage.senderId._id === authUser._id;
+  };
+
   return (
     <>
       <div
@@ -116,7 +129,10 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
           {shouldShowMessageMetadata() && item.lastMessage && (
             <>
               <span className="text-xs text-[#999999]">{formatTime(item.lastMessage.createdAt)}</span>
-              {type === "user" && <MessageStatus status={item.lastMessage.status} />}
+              {/* Only show MessageStatus if the last message was sent by the authenticated user */}
+              {type === "user" && isLastMessageFromAuthUser() && (
+                <MessageStatus status={item.lastMessage.status} />
+              )}
             </>
           )}
           
