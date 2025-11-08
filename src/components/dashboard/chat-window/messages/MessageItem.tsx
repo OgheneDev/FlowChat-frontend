@@ -9,7 +9,7 @@ import DeleteModal from "../../../modals/DeleteModal";
 import ForwardModal from "../../../modals/ForwardModal";
 
 interface MessageItemProps {
-  message: any;
+  message: any; 
   index: number;
   type: "user" | "contact" | "group";
   authUser: { _id: string } | null;

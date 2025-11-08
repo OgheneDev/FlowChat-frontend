@@ -22,10 +22,10 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null); 
 
   // All from @/stores
-  const { sendPrivateMessage, isSendingMessage: isPrivateSending } = usePrivateChatStore();
-  const { sendGroupMessage, isSendingMessage: isGroupSending } = useGroupStore();
+  const { isSendingMessage: isPrivateSending } = usePrivateChatStore();
+  const { isSendingMessage: isGroupSending } = useGroupStore();
   const { replyingTo, clearReply } = useUIStore();
-  const { authUser } = useAuthStore();
+  const { authUser, socket } = useAuthStore();
 
   const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
 
@@ -58,34 +58,88 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     setImage(file);
   };
 
-  // Send message
+  // Convert image to base64 for socket transmission
+  const imageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Send message via Socket.IO
   const send = async () => {
     if (isSendingMessage || (!text.trim() && !image)) return;
+    
+    if (!socket || !socket.connected) {
+      console.error("Socket not connected");
+      alert("Connection lost. Please refresh the page.");
+      return;
+    }
+
+    if (!authUser) {
+      console.error("User not authenticated");
+      return;
+    }
 
     const payload: any = {};
     if (text.trim()) payload.text = text.trim();
     if (image) {
-      payload.image = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(image);
-      });
+      payload.image = await imageToBase64(image);
     }
     if (replyingTo) payload.replyTo = replyingTo._id;
 
     try {
-      if (type === "group") {
-        await sendGroupMessage(receiverId, payload);
-      } else {
-        await sendPrivateMessage(receiverId, payload);
-      }
+      // Create optimistic message for UI
+      // Using 'as any' to bypass strict type checking for optimistic updates
+      const optimisticMessage = {
+        _id: `temp-${Date.now()}-${Math.random()}`,
+        text: payload.text || "",
+        image: preview || null,
+        senderId: authUser, // Full user object for display
+        receiverId: type === "group" ? undefined : receiverId,
+        groupId: type === "group" ? receiverId : undefined,
+        status: "sent" as const,
+        replyTo: replyingTo || null,
+        createdAt: new Date().toISOString(),
+      } as any; // Temporary type bypass for optimistic update
 
+      // Add optimistically to UI
+      if (type === "group") {
+        console.log("➕ Adding optimistic group message:", optimisticMessage._id);
+        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
+        
+        // Emit via socket
+        console.log("📤 Emitting sendGroupMessage to server");
+        socket.emit("sendGroupMessage", {
+          groupId: receiverId,
+          ...payload,
+        });
+      } else {
+        console.log("➕ Adding optimistic private message:", optimisticMessage._id);
+        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
+        
+        // Emit via socket
+        console.log("📤 Emitting sendMessage to server");
+        socket.emit("sendMessage", {
+          receiverId,
+          ...payload,
+        });
+      }
+      
+      console.log("✅ Message sent successfully (optimistic)");
+
+      // Clear form immediately for better UX
       setText("");
       setImage(null);
       setPreview("");
       clearReply();
+      
     } catch (error) {
       console.error("Failed to send message:", error);
+      alert("Failed to send message. Please try again.");
+      // TODO: Implement proper error handling and rollback
     }
   };
 

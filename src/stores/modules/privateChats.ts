@@ -207,75 +207,140 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   },
 
   // SOCKET METHODS
-  initializeSocketListeners: () => {
-    // Get socket from auth store
-    const socket = useAuthStore.getState().socket;
-    const currentUserId = useAuthStore.getState().authUser?._id;
+  // Add this to your usePrivateChatStore
+
+// UPDATED initializeSocketListeners for usePrivateChatStore with better debugging
+
+initializeSocketListeners: () => {
+  const socket = useAuthStore.getState().socket;
+  const currentUserId = useAuthStore.getState().authUser?._id;
+  
+  if (!socket) {
+    console.warn("Socket not available - user might not be authenticated");
+    return;
+  }
+
+  console.log("🔌 Initializing socket listeners for private chat...");
+
+  // Listen for new incoming messages (from other users)
+  socket.on("newMessage", (message: Message) => {
+    console.log("📨 newMessage received:", message);
+    const { privateMessages } = get();
     
-    if (!socket) {
-      console.warn("Socket not available - user might not be authenticated");
+    // Extract sender ID
+    const senderId = typeof message.senderId === "string" 
+      ? message.senderId 
+      : message.senderId?._id;
+    
+    // SKIP messages from current user (already added optimistically)
+    if (senderId === currentUserId) {
+      console.log("⏭️  Skipping own message from socket");
       return;
     }
-
-    console.log("Initializing socket listeners for chat...");
-
-    // Listen for new incoming messages
-    socket.on("newMessage", (message: Message) => {
-      const { privateMessages, addIncomingMessage } = get();
+    
+    // Check if message already exists to avoid duplicates
+    const messageExists = privateMessages.some(m => m._id === message._id);
+    if (!messageExists) {
+      console.log("✅ Adding new message to state");
+      get().addIncomingMessage(message);
       
-      // Check if message already exists to avoid duplicates
-      const messageExists = privateMessages.some(m => m._id === message._id);
-      if (!messageExists) {
-        addIncomingMessage(message);
-        
-        // Also update recent chats when new message arrives
-        const partnerId = message.senderId._id === currentUserId 
-          ? message.receiverId._id 
-          : message.senderId._id;
-        
-        get().updateRecentChat({
-          partnerId,
-          lastMessage: message
-        });
-      }
-    });
+      // Update recent chats
+      const partnerId = typeof message.senderId === "string" 
+        ? message.senderId 
+        : message.senderId?._id;
+      const receiverId = typeof message.receiverId === "string"
+        ? message.receiverId
+        : message.receiverId?._id;
+      
+      const otherUserId = partnerId === currentUserId ? receiverId : partnerId;
+      
+      get().updateRecentChat({
+        partnerId: otherUserId!,
+        lastMessage: message
+      });
+    } else {
+      console.log("⚠️  Message already exists, skipping");
+    }
+  });
 
-    // Listen for message status updates (sent → delivered)
-    socket.on("messageStatusUpdate", (data: {
-      messageId: string;
-      status: Message["status"];
-    }) => {
-      console.log("Message status updated:", data);
-      get().updateMessageStatus(data.messageId, data.status);
-    });
+  // CRITICAL: Listen for status updates for YOUR messages
+  socket.on("messageStatusUpdate", (data: {
+  messageId: string;
+  status: Message["status"];
+}) => {
+  console.log("🔄 messageStatusUpdate received:", data);
+  
+  set((state) => {
+    // Find the most recent temp message (should be last in array)
+    const tempMessageIndex = state.privateMessages.findIndex(m => m._id.startsWith('temp-'));
+    
+    if (tempMessageIndex !== -1) {
+      // Found a temp message - replace its ID and update status
+      const updatedMessages = [...state.privateMessages];
+      updatedMessages[tempMessageIndex] = {
+        ...updatedMessages[tempMessageIndex],
+        _id: data.messageId,
+        status: data.status
+      };
+      
+      console.log("✅ Updated temp message at index", tempMessageIndex, "→", data.messageId, data.status);
+      return { privateMessages: updatedMessages };
+    } else {
+      // No temp message found - just update status of existing message
+      const updatedMessages = state.privateMessages.map(m =>
+        m._id === data.messageId ? { ...m, status: data.status } : m
+      );
+      
+      console.log("✅ Updated existing message status:", data.messageId, data.status);
+      return { privateMessages: updatedMessages };
+    }
+  });
+});
 
-    // Listen for recent chat updates
-    socket.on("recentChatUpdated", (data: {
-      partnerId: string;
-      lastMessage: Message;
-    }) => {
-      console.log("Recent chat updated:", data);
-      get().updateRecentChat(data);
-    });
+  // Listen for recent chat updates
+  socket.on("recentChatUpdated", (data: {
+    partnerId: string;
+    lastMessage: Message;
+  }) => {
+    console.log("📬 recentChatUpdated received:", data);
+    get().updateRecentChat(data);
+  });
 
-    // Listen for message edits from other users
-    socket.on("messageEdited", (updatedMessage: Message) => {
-      console.log("Message edited:", updatedMessage);
-      set(state => ({
-        privateMessages: state.privateMessages.map(m =>
-          m._id === updatedMessage._id ? updatedMessage : m
-        )
-      }));
-    });
+  // Listen for message edits from other users
+  socket.on("messageEdited", (updatedMessage: Message) => {
+    console.log("✏️  messageEdited received:", updatedMessage);
+    
+    const senderId = typeof updatedMessage.senderId === "string" 
+      ? updatedMessage.senderId 
+      : updatedMessage.senderId?._id;
+    
+    if (senderId === currentUserId) {
+      console.log("⏭️  Skipping own edit from socket");
+      return;
+    }
+    
+    set(state => ({
+      privateMessages: state.privateMessages.map(m =>
+        m._id === updatedMessage._id ? updatedMessage : m
+      )
+    }));
+  });
 
-    // Listen for message deletes from other users
-    socket.on("messageDeleted", (data: { messageId: string }) => {
-      console.log("Message deleted:", data);
-      set(state => ({
-        privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
-      }));
-    });
-  },
+  // Listen for message deletes from other users
+  socket.on("messageDeleted", (data: { messageId: string }) => {
+    console.log("🗑️  messageDeleted received:", data);
+    set(state => ({
+      privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
+    }));
+  });
+
+  // Listen for socket errors
+  socket.on("error", (error: { message: string }) => {
+    console.error("❌ Socket error:", error);
+  });
+  
+  console.log("✅ Socket listeners initialized for private chat");
+},
 
   cleanupSocketListeners: () => {
     const socket = useAuthStore.getState().socket;

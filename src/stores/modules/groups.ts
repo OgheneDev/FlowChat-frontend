@@ -431,6 +431,10 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
    // In your useGroupStore.ts file, update the initializeGroupSocketListeners method:
 
+// Update your useGroupStore initializeGroupSocketListeners
+
+// UPDATED initializeGroupSocketListeners for useGroupStore with better debugging
+
 initializeGroupSocketListeners: () => {
   const socket = useAuthStore.getState().socket;
   const currentUserId = useAuthStore.getState().authUser?._id;
@@ -440,66 +444,95 @@ initializeGroupSocketListeners: () => {
     return;
   }
 
-  console.log("Initializing socket listeners for group chat...");
+  console.log("🔌 Initializing socket listeners for group chat...");
 
-  // Listen for new incoming group messages
+  // Listen for new incoming group messages (from other users)
   socket.on("newGroupMessage", (message: Message) => {
-    const { groupMessages, addIncomingGroupMessage } = get();
+    console.log("📨 newGroupMessage received:", message);
+    const { groupMessages } = get();
     
-    // CRITICAL FIX: Don't add messages sent by current user (already added optimistically)
+    // Extract sender ID
     const senderId = typeof message.senderId === "string" 
       ? message.senderId 
       : message.senderId?._id;
     
+    // SKIP messages from current user (already added optimistically)
     if (senderId === currentUserId) {
-      console.log("Skipping own message from socket (already added optimistically)");
+      console.log("⏭️  Skipping own message from socket");
       return;
     }
     
     // Check if message already exists to avoid duplicates
     const messageExists = groupMessages.some(m => m._id === message._id);
     if (!messageExists) {
-      addIncomingGroupMessage(message);
+      console.log("✅ Adding new group message to state");
+      get().addIncomingGroupMessage(message);
       
-      // Update recent groups when new message arrives
+      // Update recent groups
       if (message.groupId) {
         get().updateRecentGroup({
           groupId: message.groupId,
           lastMessage: message
         });
       }
+    } else {
+      console.log("⚠️  Message already exists, skipping");
     }
   });
 
-  // Listen for group message status updates
+  // CRITICAL: Listen for status updates for YOUR messages
   socket.on("groupMessageStatusUpdate", (data: {
-    messageId: string;
-    status: Message["status"];
-  }) => {
-    console.log("Group message status updated:", data);
-    get().updateGroupMessageStatus(data.messageId, data.status);
+  messageId: string;
+  status: Message["status"];
+}) => {
+  console.log("🔄 groupMessageStatusUpdate received:", data);
+  
+  set((state) => {
+    // Find the most recent temp message
+    const tempMessageIndex = state.groupMessages.findIndex(m => m._id.startsWith('temp-'));
+    
+    if (tempMessageIndex !== -1) {
+      // Found a temp message - replace its ID and update status
+      const updatedMessages = [...state.groupMessages];
+      updatedMessages[tempMessageIndex] = {
+        ...updatedMessages[tempMessageIndex],
+        _id: data.messageId,
+        status: data.status
+      };
+      
+      console.log("✅ Updated temp group message at index", tempMessageIndex, "→", data.messageId, data.status);
+      return { groupMessages: updatedMessages };
+    } else {
+      // No temp message found - just update status of existing message
+      const updatedMessages = state.groupMessages.map(m =>
+        m._id === data.messageId ? { ...m, status: data.status } : m
+      );
+      
+      console.log("✅ Updated existing group message status:", data.messageId, data.status);
+      return { groupMessages: updatedMessages };
+    }
   });
+});
 
   // Listen for recent group updates
   socket.on("recentGroupUpdated", (data: {
     groupId: string;
     lastMessage: Message;
   }) => {
-    console.log("Recent group updated:", data);
+    console.log("📬 recentGroupUpdated received:", data);
     get().updateRecentGroup(data);
   });
 
   // Listen for group message edits from other users
   socket.on("groupMessageEdited", (updatedMessage: Message) => {
-    console.log("Group message edited:", updatedMessage);
+    console.log("✏️  groupMessageEdited received:", updatedMessage);
     
-    // ADDED: Skip if current user edited (already updated optimistically)
     const senderId = typeof updatedMessage.senderId === "string" 
       ? updatedMessage.senderId 
       : updatedMessage.senderId?._id;
     
     if (senderId === currentUserId) {
-      console.log("Skipping own edit from socket (already updated optimistically)");
+      console.log("⏭️  Skipping own edit from socket");
       return;
     }
     
@@ -512,11 +545,10 @@ initializeGroupSocketListeners: () => {
 
   // Listen for group message deletes from other users
   socket.on("groupMessageDeleted", (data: { messageId: string; userId: string }) => {
-    console.log("Group message deleted:", data);
+    console.log("🗑️  groupMessageDeleted received:", data);
     
-    // ADDED: Skip if current user deleted (already updated optimistically)
     if (data.userId === currentUserId) {
-      console.log("Skipping own delete from socket (already updated optimistically)");
+      console.log("⏭️  Skipping own delete from socket");
       return;
     }
     
@@ -525,9 +557,9 @@ initializeGroupSocketListeners: () => {
     }));
   });
 
-  // Listen for group updates (members added/removed, group info changed)
+  // Listen for group updates
   socket.on("groupUpdated", (updatedGroup: GroupWithPinned) => {
-    console.log("Group updated:", updatedGroup);
+    console.log("🔄 groupUpdated received:", updatedGroup);
     set(state => ({
       groups: state.groups.map(group => 
         group._id === updatedGroup._id ? updatedGroup : group
@@ -538,13 +570,20 @@ initializeGroupSocketListeners: () => {
 
   // Listen for when user is removed from group
   socket.on("removedFromGroup", (data: { groupId: string }) => {
-    console.log("Removed from group:", data);
+    console.log("🚫 removedFromGroup received:", data);
     set(state => ({
       groups: state.groups.filter(group => group._id !== data.groupId),
       currentGroup: state.currentGroup?._id === data.groupId ? null : state.currentGroup,
       groupMessages: state.currentGroup?._id === data.groupId ? [] : state.groupMessages
     }));
   });
+
+  // Listen for socket errors
+  socket.on("error", (error: { message: string }) => {
+    console.error("❌ Socket error:", error);
+  });
+  
+  console.log("✅ Socket listeners initialized for group chat");
 },
 
   cleanupGroupSocketListeners: () => {

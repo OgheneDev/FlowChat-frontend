@@ -30,7 +30,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-    const highlightedMessageRef = useRef<string | null>(null);
+    const highlightedMessageRef = useRef<string | null>(null); 
     
     // Selection state
     const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
