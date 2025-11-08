@@ -19,7 +19,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); 
 
   // All from @/stores
   const { sendPrivateMessage, isSendingMessage: isPrivateSending } = usePrivateChatStore();

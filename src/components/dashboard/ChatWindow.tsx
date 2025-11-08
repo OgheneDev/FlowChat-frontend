@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { usePrivateChatStore, useGroupStore, useUIStore, usePinningStore } from '@/stores';
+import { usePrivateChatStore, useGroupStore, useUIStore, usePinningStore, useAuthStore } from '@/stores';
 import { useToastStore } from '@/stores/modules/toast';
 import MessageList from './chat-window/messages/MessageList';
 import MessageInput from './chat-window/messages/MessageInput';
@@ -19,11 +19,18 @@ interface ChatWindowProps {
 }
 
 const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
-  const { privateMessages, isMessagesLoading, getPrivateMessages } = usePrivateChatStore();
-  const { groupMessages, getGroupMessages, getGroupById, currentGroup } = useGroupStore(); 
+  const { 
+    privateMessages, 
+    isMessagesLoading, 
+    getPrivateMessages, 
+    initializeSocketListeners,  // NEW: Import socket methods
+    cleanupSocketListeners      // NEW: Import socket methods
+  } = usePrivateChatStore();
+  const { groupMessages, getGroupMessages, initializeGroupSocketListeners, cleanupGroupSocketListeners } = useGroupStore(); 
   const { setSelectedUser } = useUIStore();
   const { pinnedMessages, loadPinnedMessagesForChat } = usePinningStore();
   const { showToast } = useToastStore();
+  const { socket, authUser } = useAuthStore(); // NEW: Get socket from auth store
 
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -36,6 +43,35 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   const clearSelection = useCallback(() => {
     setSelectedMessages([]);
     setIsSelectionMode(false);
+  }, []);
+
+useEffect(() => {
+  if (authUser && socket?.connected) {
+    console.log('Initializing socket listeners for real-time chat...');
+    
+    if (type === 'group') {
+      initializeGroupSocketListeners();
+    } else {
+      initializeSocketListeners();
+    }
+  }
+
+  // Cleanup when component unmounts
+  return () => {
+    console.log('Cleaning up socket listeners...');
+    if (type === 'group') {
+      cleanupGroupSocketListeners();
+    } else {
+      cleanupSocketListeners();
+    }
+  };
+}, [authUser, socket?.connected, type, initializeSocketListeners, cleanupSocketListeners, initializeGroupSocketListeners, cleanupGroupSocketListeners]);
+
+  // NEW: Handle real-time message status updates
+  useEffect(() => {
+    // This effect will automatically handle real-time updates
+    // via the socket listeners we initialized above
+    console.log('Chat window ready for real-time messages');
   }, []);
 
   const {
@@ -145,7 +181,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
         modal={deleteModal}
         isOwn={isFirstSelectedOwn()}
         onDelete={handleDeleteSelected}
-        onClose={() => setDeleteModal(null)}
+        onClose={() => setDeleteModal(null)} 
       />
 
       <MoreActionsModal

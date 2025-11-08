@@ -36,6 +36,12 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+    useEffect(() => {
+  // This will automatically handle incoming real-time messages
+  // via the socket listeners in the parent ChatWindow
+  console.log('MessageList updated with:', messages.length, 'messages');
+}, [messages]);
+
     // Use useCallback to prevent unnecessary re-renders
     const toggleMessageSelection = useCallback((messageId: string) => {
       setSelectedMessages(prev => {
@@ -128,7 +134,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       }
     }, [selectedMessages.size, isSelectionMode]);
 
-    // Notify parent about selection mode
+    // Notify parent about selection mode 
     useEffect(() => {
       onSelectionModeChange?.(isSelectionMode);
     }, [isSelectionMode, onSelectionModeChange]);
@@ -137,6 +143,31 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     useEffect(() => {
       onSelectedMessagesChange?.(Array.from(selectedMessages));
     }, [selectedMessages, onSelectedMessagesChange]);
+
+    const styles = `
+  .message-highlight {
+    animation: highlight-pulse 3s ease-in-out;
+    border-left: 3px solid #00d9ff;
+    background: linear-gradient(90deg, rgba(0, 217, 255, 0.1) 0%, transparent 100%);
+  }
+  
+  @keyframes highlight-pulse {
+    0% { background: rgba(0, 217, 255, 0.2); }
+    50% { background: rgba(0, 217, 255, 0.1); }
+    100% { background: rgba(0, 217, 255, 0.05); }
+  }
+`;
+
+// Add the styles to the document head
+useEffect(() => {
+  const styleSheet = document.createElement('style');
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+  
+  return () => {
+    document.head.removeChild(styleSheet);
+  };
+}, []);
 
     if (isLoading) {
       return (

@@ -1,15 +1,12 @@
-// src/store/modules/groups.ts
 import { create } from "zustand";
 import { axiosInstance } from "@/api/axios";
 import { sendMessageData } from "@/types/types";
+import { useAuthStore } from "./auth";
 
-/* -------------------------------------------------------------------------- */
-/*  Types (reused from main file)                                            */
-/* -------------------------------------------------------------------------- */
 interface User {
   _id: string;
   fullName: string;
-  profileImage?: string;
+  profilePic?: string;
   email: string;
   online?: boolean;
 }
@@ -66,9 +63,6 @@ interface UpdateGroupData {
   description?: string; 
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Group Store Interface                                                    */
-/* -------------------------------------------------------------------------- */
 interface GroupState {
   groups: GroupWithPinned[];
   groupMessages: Message[];
@@ -101,14 +95,21 @@ interface GroupState {
   deleteMessage: (data: DeleteMessageData) => Promise<void>;
   editMessage: (messageId: string, data: EditMessageData) => Promise<Message>;
 
+  // Socket Methods
+  addIncomingGroupMessage: (msg: Message) => void;
+  updateGroupMessageStatus: (messageId: string, status: Message["status"]) => void;
+  initializeGroupSocketListeners: () => void;
+  cleanupGroupSocketListeners: () => void;
+  updateRecentGroup: (data: {
+    groupId: string;
+    lastMessage: Message;
+  }) => void;
+
   // Utility
   setCurrentGroup: (group: GroupWithPinned | null) => void;
   clearGroupMessages: () => void;
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Group Store Implementation                                               */
-/* -------------------------------------------------------------------------- */
 export const useGroupStore = create<GroupState>((set, get) => ({
   groups: [],
   groupMessages: [],
@@ -175,7 +176,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         data
       );
       
-      // Update in groups list
       set((state) => ({
         groups: state.groups.map((group) =>
           group._id === groupId ? updatedGroup : group
@@ -196,7 +196,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     try {
       await axiosInstance.delete(`/groups/${groupId}/leave`);
       
-      // Remove from local state
       set((state) => ({
         groups: state.groups.filter((group) => group._id !== groupId),
         currentGroup: state.currentGroup?._id === groupId ? null : state.currentGroup,
@@ -214,7 +213,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     try {
       await axiosInstance.delete(`/groups/${groupId}`);
       
-      // Remove from local state
       set((state) => ({
         groups: state.groups.filter((group) => group._id !== groupId),
         currentGroup: state.currentGroup?._id === groupId ? null : state.currentGroup,
@@ -237,7 +235,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         { members }
       );
       
-      // Update in groups list and current group
       set((state) => ({
         groups: state.groups.map((group) =>
           group._id === groupId ? updatedGroup : group
@@ -260,7 +257,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         `/groups/${groupId}/members/${memberId}`
       );
       
-      // Update in groups list and current group
       set((state) => ({
         groups: state.groups.map((group) =>
           group._id === groupId ? updatedGroup : group
@@ -284,7 +280,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         { groupId, userIdToPromote }
       );
       
-      // Update in groups list and current group
       set((state) => ({
         groups: state.groups.map((group) =>
           group._id === groupId ? updatedGroup : group
@@ -322,9 +317,18 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         `/groups/${groupId}/messages`,
         data
       );
+      
+      // Optimistically add to messages
       set((state) => ({
         groupMessages: [...state.groupMessages, newMessage],
       }));
+
+      // Also update recent groups optimistically
+      get().updateRecentGroup({
+        groupId,
+        lastMessage: newMessage
+      });
+
       return newMessage;
     } catch (error: any) {
       throw new Error(error?.response?.data?.message || "Error sending group message");
@@ -372,10 +376,8 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     const { text } = data;
     set({ isEditingMessage: true });
 
-    // Store original message for proper rollback
     const originalMessage = get().groupMessages.find(m => m._id === messageId);
     
-    // Optimistic update
     set((state) => ({
       groupMessages: state.groupMessages.map((m) =>
         m._id === messageId
@@ -390,7 +392,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
         data
       );
       
-      // Update with server response
       set((state) => ({
         groupMessages: state.groupMessages.map((m) =>
           m._id === messageId ? updatedMessage : m
@@ -399,7 +400,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
 
       return updatedMessage;
     } catch (error: any) {
-      // Revert optimistic update properly
       if (originalMessage) {
         set((state) => ({ 
           groupMessages: state.groupMessages.map((m) =>
@@ -411,6 +411,181 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     } finally {
       set({ isEditingMessage: false });
     }
+  },
+
+  /* ────── Socket Methods ────── */
+
+  addIncomingGroupMessage: (msg: Message) => {
+    set((state) => ({
+      groupMessages: [...state.groupMessages, msg],
+    }));
+  },
+
+  updateGroupMessageStatus: (messageId: string, status: Message["status"]) => {
+    set((state) => ({
+      groupMessages: state.groupMessages.map((m) =>
+        m._id === messageId ? { ...m, status } : m
+      ),
+    }));
+  },
+
+   // In your useGroupStore.ts file, update the initializeGroupSocketListeners method:
+
+initializeGroupSocketListeners: () => {
+  const socket = useAuthStore.getState().socket;
+  const currentUserId = useAuthStore.getState().authUser?._id;
+  
+  if (!socket) {
+    console.warn("Socket not available for group chat");
+    return;
+  }
+
+  console.log("Initializing socket listeners for group chat...");
+
+  // Listen for new incoming group messages
+  socket.on("newGroupMessage", (message: Message) => {
+    const { groupMessages, addIncomingGroupMessage } = get();
+    
+    // CRITICAL FIX: Don't add messages sent by current user (already added optimistically)
+    const senderId = typeof message.senderId === "string" 
+      ? message.senderId 
+      : message.senderId?._id;
+    
+    if (senderId === currentUserId) {
+      console.log("Skipping own message from socket (already added optimistically)");
+      return;
+    }
+    
+    // Check if message already exists to avoid duplicates
+    const messageExists = groupMessages.some(m => m._id === message._id);
+    if (!messageExists) {
+      addIncomingGroupMessage(message);
+      
+      // Update recent groups when new message arrives
+      if (message.groupId) {
+        get().updateRecentGroup({
+          groupId: message.groupId,
+          lastMessage: message
+        });
+      }
+    }
+  });
+
+  // Listen for group message status updates
+  socket.on("groupMessageStatusUpdate", (data: {
+    messageId: string;
+    status: Message["status"];
+  }) => {
+    console.log("Group message status updated:", data);
+    get().updateGroupMessageStatus(data.messageId, data.status);
+  });
+
+  // Listen for recent group updates
+  socket.on("recentGroupUpdated", (data: {
+    groupId: string;
+    lastMessage: Message;
+  }) => {
+    console.log("Recent group updated:", data);
+    get().updateRecentGroup(data);
+  });
+
+  // Listen for group message edits from other users
+  socket.on("groupMessageEdited", (updatedMessage: Message) => {
+    console.log("Group message edited:", updatedMessage);
+    
+    // ADDED: Skip if current user edited (already updated optimistically)
+    const senderId = typeof updatedMessage.senderId === "string" 
+      ? updatedMessage.senderId 
+      : updatedMessage.senderId?._id;
+    
+    if (senderId === currentUserId) {
+      console.log("Skipping own edit from socket (already updated optimistically)");
+      return;
+    }
+    
+    set(state => ({
+      groupMessages: state.groupMessages.map(m =>
+        m._id === updatedMessage._id ? updatedMessage : m
+      )
+    }));
+  });
+
+  // Listen for group message deletes from other users
+  socket.on("groupMessageDeleted", (data: { messageId: string; userId: string }) => {
+    console.log("Group message deleted:", data);
+    
+    // ADDED: Skip if current user deleted (already updated optimistically)
+    if (data.userId === currentUserId) {
+      console.log("Skipping own delete from socket (already updated optimistically)");
+      return;
+    }
+    
+    set(state => ({
+      groupMessages: state.groupMessages.filter(m => m._id !== data.messageId)
+    }));
+  });
+
+  // Listen for group updates (members added/removed, group info changed)
+  socket.on("groupUpdated", (updatedGroup: GroupWithPinned) => {
+    console.log("Group updated:", updatedGroup);
+    set(state => ({
+      groups: state.groups.map(group => 
+        group._id === updatedGroup._id ? updatedGroup : group
+      ),
+      currentGroup: state.currentGroup?._id === updatedGroup._id ? updatedGroup : state.currentGroup
+    }));
+  });
+
+  // Listen for when user is removed from group
+  socket.on("removedFromGroup", (data: { groupId: string }) => {
+    console.log("Removed from group:", data);
+    set(state => ({
+      groups: state.groups.filter(group => group._id !== data.groupId),
+      currentGroup: state.currentGroup?._id === data.groupId ? null : state.currentGroup,
+      groupMessages: state.currentGroup?._id === data.groupId ? [] : state.groupMessages
+    }));
+  });
+},
+
+  cleanupGroupSocketListeners: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    console.log("Cleaning up group socket listeners...");
+
+    socket.off("newGroupMessage");
+    socket.off("groupMessageStatusUpdate");
+    socket.off("recentGroupUpdated");
+    socket.off("groupMessageEdited");
+    socket.off("groupMessageDeleted");
+    socket.off("groupUpdated");
+    socket.off("removedFromGroup");
+  },
+
+  updateRecentGroup: (data: { groupId: string; lastMessage: Message }) => {
+    set(state => {
+      const existingGroupIndex = state.groups.findIndex(group => group._id === data.groupId);
+
+      if (existingGroupIndex >= 0) {
+        const updatedGroups = [...state.groups];
+        const existingGroup = updatedGroups[existingGroupIndex];
+        
+        const updatedGroup = {
+          ...existingGroup,
+          lastMessage: data.lastMessage,
+          updatedAt: new Date().toISOString()
+        };
+        updatedGroups[existingGroupIndex] = updatedGroup;
+
+        // Move to top (most recent first)
+        const [movedGroup] = updatedGroups.splice(existingGroupIndex, 1);
+        updatedGroups.unshift(movedGroup);
+
+        return { groups: updatedGroups };
+      }
+      
+      return state;
+    });
   },
 
   /* ────── Utility Functions ────── */

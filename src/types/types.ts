@@ -6,10 +6,17 @@ export interface sendMessageData {
     isForwarded?: boolean;
 }
 
+interface User {
+    _id: string
+    fullName: string
+    profilePic?: string
+}
+
 export interface Message {
     _id: string
     text: string
-    senderId: string
+    senderId: User
+    receiverId: User
     senderName?: string
     createdAt: string
     status: 'sent' | 'delivered' | 'read'

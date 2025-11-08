@@ -89,7 +89,7 @@ const ChatHeader = ({
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-white truncate text-base">{displayName || 'Unknown'}</h3>
                 <p className="text-xs text-[#00d9ff] font-medium">
-                  {type === 'group' ? `${memberCount} members` : online ? 'Active now' : 'Offline'}
+                  {type === 'group' ? `${memberCount} members` : online ? 'Online' : 'Offline'}
                 </p>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { axiosInstance } from "@/api/axios";
 import { sendMessageData, Message } from "@/types/types";
 import { create } from "zustand";
+import { useAuthStore } from "./auth";
 
 interface DeleteMessageData {
   messageId: string;
@@ -8,7 +9,7 @@ interface DeleteMessageData {
 }
 
 interface EditMessageData {
-  text: string;
+  text: string; 
 }
 
 interface ChatWithPinned {
@@ -20,8 +21,8 @@ interface ChatWithPinned {
     profilePic?: string;
   }>;
   pinnedMessages: string[];
-  fullName?: string;      // for private chats (legacy?)
-  profilePic?: string;    // for private chats (legacy?)
+  fullName?: string;
+  profilePic?: string;
 }
 
 interface PrivateChatState {
@@ -33,6 +34,7 @@ interface PrivateChatState {
   isDeletingMessage: boolean;
   isEditingMessage: boolean;
 
+  // Core chat methods
   getChatPartners: () => Promise<ChatWithPinned[]>;
   getPrivateMessages: (id: string) => Promise<Message[]>;
   sendPrivateMessage: (id: string, data: sendMessageData) => Promise<Message>;
@@ -40,6 +42,14 @@ interface PrivateChatState {
   editMessage: (messageId: string, data: EditMessageData) => Promise<Message>;
   addIncomingMessage: (msg: Message) => void;
   updateMessageStatus: (messageId: string, status: Message["status"]) => void;
+
+  // Socket methods
+  initializeSocketListeners: () => void;
+  cleanupSocketListeners: () => void;
+  updateRecentChat: (data: {
+    partnerId: string;
+    lastMessage: Message;
+  }) => void;
 }
 
 export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
@@ -55,7 +65,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     set({ isLoading: true });
     try {
       const { data } = await axiosInstance.get("/messages/chats");
-      console.log("Chat Partners:", data)
+      console.log("Chat Partners:", data);
       set({ chats: data });
       return data;
     } catch (error: any) {
@@ -69,7 +79,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const { data } = await axiosInstance.get(`/messages/${id}`);
-      console.log("Messages:", data)
+      console.log("Messages:", data);
       set({ privateMessages: data });
       return data;
     } catch (error: any) {
@@ -83,9 +93,18 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     set({ isSendingMessage: true });
     try {
       const { data: newMessage } = await axiosInstance.post(`/messages/send/${id}`, data);
+      
+      // Optimistically add to messages
       set((state) => ({
         privateMessages: [...state.privateMessages, newMessage],
       }));
+
+      // Also update recent chats optimistically
+      get().updateRecentChat({
+        partnerId: id,
+        lastMessage: newMessage
+      });
+
       return newMessage;
     } catch (error: any) {
       throw new Error(error?.response?.data?.message || "Error sending message");
@@ -95,83 +114,83 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   },
 
   deleteMessage: async (data: DeleteMessageData) => {
-  const { messageId, deleteType } = data;
-  set({ isDeletingMessage: true });
+    const { messageId, deleteType } = data;
+    set({ isDeletingMessage: true });
 
-  // Different optimistic updates based on delete type
-  const optimisticUpdater = (messages: Message[]) => {
-    if (deleteType === "me") {
-      // Remove completely for "delete for me"
-      return messages.filter(m => m._id !== messageId);
-    } else {
-      // Show "You deleted this message" for "delete for everyone"
-      return messages.map(m =>
-        m._id === messageId 
-          ? { 
-              ...m, 
-              isDeleted: true, 
-              text: "You deleted this message",
-              image: null // Remove image if it exists
-            } 
-          : m
-      );
-    }
-  };
+    // Different optimistic updates based on delete type
+    const optimisticUpdater = (messages: Message[]) => {
+      if (deleteType === "me") {
+        // Remove completely for "delete for me"
+        return messages.filter(m => m._id !== messageId);
+      } else {
+        // Show "You deleted this message" for "delete for everyone"
+        return messages.map(m =>
+          m._id === messageId 
+            ? { 
+                ...m, 
+                isDeleted: true, 
+                text: "You deleted this message",
+                image: null // Remove image if it exists
+              } 
+            : m
+        );
+      }
+    };
 
-  set((state) => ({
-    privateMessages: optimisticUpdater(state.privateMessages), 
-  }));
-
-  try {
-    await axiosInstance.delete("/messages/delete", { data });
-  } catch (error: any) {
-    // Revert on error - you might want to implement proper revert logic
-    set((state) => ({ privateMessages: state.privateMessages }));
-    throw error;
-  } finally {
-    set({ isDeletingMessage: false });
-  }
-},
-
-  editMessage: async (messageId: string, data: EditMessageData) => {
-  const { text } = data;
-  set({ isEditingMessage: true });
-
-  // Store original message for rollback
-  const originalMessage = get().privateMessages.find(m => m._id === messageId);
-  
-  // Optimistic update
-  set((state) => ({
-    privateMessages: state.privateMessages.map((m) =>
-      m._id === messageId ? { ...m, text, editedAt: new Date().toISOString() } : m
-    ),
-  }));
-  
-  try {
-    const { data: updatedMessage } = await axiosInstance.put(`/messages/edit/${messageId}`, data);
-    
-    // Update with server response
     set((state) => ({
-      privateMessages: state.privateMessages.map((m) =>
-        m._id === messageId ? updatedMessage : m
-      ),
+      privateMessages: optimisticUpdater(state.privateMessages), 
     }));
 
-    return updatedMessage;
-  } catch (error: any) {
-    // Revert optimistic update on error
-    if (originalMessage) {
-      set((state) => ({ 
-        privateMessages: state.privateMessages.map((m) =>
-          m._id === messageId ? originalMessage : m
-        )
-      }));
+    try {
+      await axiosInstance.delete("/messages/delete", { data });
+    } catch (error: any) {
+      // Revert on error - you might want to implement proper revert logic
+      set((state) => ({ privateMessages: state.privateMessages }));
+      throw error;
+    } finally {
+      set({ isDeletingMessage: false });
     }
-    throw error;
-  } finally {
-    set({ isEditingMessage: false });
-  }
-},
+  },
+
+  editMessage: async (messageId: string, data: EditMessageData) => {
+    const { text } = data;
+    set({ isEditingMessage: true });
+
+    // Store original message for rollback
+    const originalMessage = get().privateMessages.find(m => m._id === messageId);
+    
+    // Optimistic update
+    set((state) => ({
+      privateMessages: state.privateMessages.map((m) =>
+        m._id === messageId ? { ...m, text, editedAt: new Date().toISOString() } : m
+      ),
+    }));
+    
+    try {
+      const { data: updatedMessage } = await axiosInstance.put(`/messages/edit/${messageId}`, data);
+      
+      // Update with server response
+      set((state) => ({
+        privateMessages: state.privateMessages.map((m) =>
+          m._id === messageId ? updatedMessage : m
+        ),
+      }));
+
+      return updatedMessage;
+    } catch (error: any) {
+      // Revert optimistic update on error
+      if (originalMessage) {
+        set((state) => ({ 
+          privateMessages: state.privateMessages.map((m) =>
+            m._id === messageId ? originalMessage : m
+          )
+        }));
+      }
+      throw error;
+    } finally {
+      set({ isEditingMessage: false });
+    }
+  },
 
   addIncomingMessage: (msg: Message) => {
     set((state) => ({
@@ -186,4 +205,125 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
       ),
     }));
   },
+
+  // SOCKET METHODS
+  initializeSocketListeners: () => {
+    // Get socket from auth store
+    const socket = useAuthStore.getState().socket;
+    const currentUserId = useAuthStore.getState().authUser?._id;
+    
+    if (!socket) {
+      console.warn("Socket not available - user might not be authenticated");
+      return;
+    }
+
+    console.log("Initializing socket listeners for chat...");
+
+    // Listen for new incoming messages
+    socket.on("newMessage", (message: Message) => {
+      const { privateMessages, addIncomingMessage } = get();
+      
+      // Check if message already exists to avoid duplicates
+      const messageExists = privateMessages.some(m => m._id === message._id);
+      if (!messageExists) {
+        addIncomingMessage(message);
+        
+        // Also update recent chats when new message arrives
+        const partnerId = message.senderId._id === currentUserId 
+          ? message.receiverId._id 
+          : message.senderId._id;
+        
+        get().updateRecentChat({
+          partnerId,
+          lastMessage: message
+        });
+      }
+    });
+
+    // Listen for message status updates (sent → delivered)
+    socket.on("messageStatusUpdate", (data: {
+      messageId: string;
+      status: Message["status"];
+    }) => {
+      console.log("Message status updated:", data);
+      get().updateMessageStatus(data.messageId, data.status);
+    });
+
+    // Listen for recent chat updates
+    socket.on("recentChatUpdated", (data: {
+      partnerId: string;
+      lastMessage: Message;
+    }) => {
+      console.log("Recent chat updated:", data);
+      get().updateRecentChat(data);
+    });
+
+    // Listen for message edits from other users
+    socket.on("messageEdited", (updatedMessage: Message) => {
+      console.log("Message edited:", updatedMessage);
+      set(state => ({
+        privateMessages: state.privateMessages.map(m =>
+          m._id === updatedMessage._id ? updatedMessage : m
+        )
+      }));
+    });
+
+    // Listen for message deletes from other users
+    socket.on("messageDeleted", (data: { messageId: string }) => {
+      console.log("Message deleted:", data);
+      set(state => ({
+        privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
+      }));
+    });
+  },
+
+  cleanupSocketListeners: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    console.log("Cleaning up socket listeners...");
+
+    socket.off("newMessage");
+    socket.off("messageStatusUpdate");
+    socket.off("recentChatUpdated");
+    socket.off("messageEdited");
+    socket.off("messageDeleted");
+  },
+
+  updateRecentChat: (data: { partnerId: string; lastMessage: Message }) => {
+  set(state => {
+    const existingChatIndex = state.chats.findIndex(chat =>
+      chat.participants && chat.participants.includes(data.partnerId) ||
+      chat._id === data.partnerId
+    );
+
+    if (existingChatIndex >= 0) {
+      // Update existing chat with new last message
+      const updatedChats = [...state.chats];
+      const existingChat = updatedChats[existingChatIndex];
+      
+      const updatedChat = {
+        ...existingChat,
+        lastMessage: data.lastMessage,
+        updatedAt: new Date().toISOString()
+      };
+      updatedChats[existingChatIndex] = updatedChat;
+
+      // Move to top (most recent first)
+      const [movedChat] = updatedChats.splice(existingChatIndex, 1);
+      updatedChats.unshift(movedChat);
+
+      return { chats: updatedChats };
+    } else {
+      // Create new temporary chat entry
+      const newChat: ChatWithPinned = {
+        _id: `temp-${Date.now()}`,
+        participants: [data.partnerId],
+        pinnedMessages: [],
+        // Note: Full user details will be fetched when chat list is refreshed
+      };
+      return { chats: [newChat, ...state.chats] };
+    }
+  });
+},
 }));
