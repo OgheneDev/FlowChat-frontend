@@ -429,12 +429,6 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     }));
   },
 
-   // In your useGroupStore.ts file, update the initializeGroupSocketListeners method:
-
-// Update your useGroupStore initializeGroupSocketListeners
-
-// UPDATED initializeGroupSocketListeners for useGroupStore with better debugging
-
 initializeGroupSocketListeners: () => {
   const socket = useAuthStore.getState().socket;
   const currentUserId = useAuthStore.getState().authUser?._id;
@@ -451,24 +445,20 @@ initializeGroupSocketListeners: () => {
     console.log("📨 newGroupMessage received:", message);
     const { groupMessages } = get();
     
-    // Extract sender ID
     const senderId = typeof message.senderId === "string" 
       ? message.senderId 
       : message.senderId?._id;
     
-    // SKIP messages from current user (already added optimistically)
     if (senderId === currentUserId) {
       console.log("⏭️  Skipping own message from socket");
       return;
     }
     
-    // Check if message already exists to avoid duplicates
     const messageExists = groupMessages.some(m => m._id === message._id);
     if (!messageExists) {
       console.log("✅ Adding new group message to state");
       get().addIncomingGroupMessage(message);
       
-      // Update recent groups
       if (message.groupId) {
         get().updateRecentGroup({
           groupId: message.groupId,
@@ -480,39 +470,74 @@ initializeGroupSocketListeners: () => {
     }
   });
 
-  // CRITICAL: Listen for status updates for YOUR messages
+  // Listen for status updates for YOUR messages
   socket.on("groupMessageStatusUpdate", (data: {
-  messageId: string;
-  status: Message["status"];
-}) => {
-  console.log("🔄 groupMessageStatusUpdate received:", data);
-  
-  set((state) => {
-    // Find the most recent temp message
-    const tempMessageIndex = state.groupMessages.findIndex(m => m._id.startsWith('temp-'));
+    messageId: string;
+    status: Message["status"];
+  }) => {
+    console.log("🔄 groupMessageStatusUpdate received:", data);
     
-    if (tempMessageIndex !== -1) {
-      // Found a temp message - replace its ID and update status
-      const updatedMessages = [...state.groupMessages];
-      updatedMessages[tempMessageIndex] = {
-        ...updatedMessages[tempMessageIndex],
-        _id: data.messageId,
-        status: data.status
-      };
+    set((state) => {
+      const tempMessageIndex = state.groupMessages.findIndex(m => m._id.startsWith('temp-'));
       
-      console.log("✅ Updated temp group message at index", tempMessageIndex, "→", data.messageId, data.status);
-      return { groupMessages: updatedMessages };
-    } else {
-      // No temp message found - just update status of existing message
+      if (tempMessageIndex !== -1) {
+        const updatedMessages = [...state.groupMessages];
+        updatedMessages[tempMessageIndex] = {
+          ...updatedMessages[tempMessageIndex],
+          _id: data.messageId,
+          status: data.status
+        };
+        
+        console.log("✅ Updated temp group message at index", tempMessageIndex, "→", data.messageId, data.status);
+        return { groupMessages: updatedMessages };
+      } else {
+        const updatedMessages = state.groupMessages.map(m =>
+          m._id === data.messageId ? { ...m, status: data.status } : m
+        );
+        
+        console.log("✅ Updated existing group message status:", data.messageId, data.status);
+        return { groupMessages: updatedMessages };
+      }
+    });
+  });
+
+  // ⭐ NEW: Listen for bulk status updates when user comes online
+  socket.on("bulkGroupMessageStatusUpdate", (data: {
+    messageIds: string[];
+    status: Message["status"];
+  }) => {
+    console.log("📦 bulkGroupMessageStatusUpdate received:", data);
+    
+    // Create the Set BEFORE using it in set()
+    const messageIdSet = new Set(data.messageIds);
+    
+    set((state) => {
+      // Update messages
       const updatedMessages = state.groupMessages.map(m =>
-        m._id === data.messageId ? { ...m, status: data.status } : m
+        messageIdSet.has(m._id) ? { ...m, status: data.status } : m
       );
       
-      console.log("✅ Updated existing group message status:", data.messageId, data.status);
-      return { groupMessages: updatedMessages };
-    }
+      // Update recent groups with new status
+      const updatedGroups = state.groups.map(group => {
+        if (group.lastMessage && messageIdSet.has(group.lastMessage._id)) {
+          return {
+            ...group,
+            lastMessage: {
+              ...group.lastMessage,
+              status: data.status
+            }
+          };
+        }
+        return group;
+      });
+      
+      console.log(`✅ Updated ${data.messageIds.length} group messages to ${data.status}`);
+      return { 
+        groupMessages: updatedMessages,
+        groups: updatedGroups
+      };
+    });
   });
-});
 
   // Listen for recent group updates
   socket.on("recentGroupUpdated", (data: {
@@ -586,20 +611,22 @@ initializeGroupSocketListeners: () => {
   console.log("✅ Socket listeners initialized for group chat");
 },
 
-  cleanupGroupSocketListeners: () => {
-    const socket = useAuthStore.getState().socket;
-    if (!socket) return;
+cleanupGroupSocketListeners: () => {
+  const socket = useAuthStore.getState().socket;
+  if (!socket) return;
 
-    console.log("Cleaning up group socket listeners...");
+  console.log("Cleaning up group socket listeners...");
 
-    socket.off("newGroupMessage");
-    socket.off("groupMessageStatusUpdate");
-    socket.off("recentGroupUpdated");
-    socket.off("groupMessageEdited");
-    socket.off("groupMessageDeleted");
-    socket.off("groupUpdated");
-    socket.off("removedFromGroup");
-  },
+  socket.off("newGroupMessage");
+  socket.off("groupMessageStatusUpdate");
+  socket.off("bulkGroupMessageStatusUpdate");
+  socket.off("recentGroupUpdated");
+  socket.off("groupMessageEdited");
+  socket.off("groupMessageDeleted");
+  socket.off("groupUpdated");
+  socket.off("removedFromGroup");
+  socket.off("error");
+},
 
   updateRecentGroup: (data: { groupId: string; lastMessage: Message }) => {
     set(state => {

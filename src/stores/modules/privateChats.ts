@@ -23,6 +23,8 @@ interface ChatWithPinned {
   pinnedMessages: string[];
   fullName?: string;
   profilePic?: string;
+  lastMessage?: Message;
+  updatedAt?: string;
 }
 
 interface PrivateChatState {
@@ -206,10 +208,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     }));
   },
 
-  // SOCKET METHODS
-  // Add this to your usePrivateChatStore
-
-// UPDATED initializeSocketListeners for usePrivateChatStore with better debugging
+  // Add this to your initializeSocketListeners in usePrivateChatStore
 
 initializeSocketListeners: () => {
   const socket = useAuthStore.getState().socket;
@@ -227,24 +226,20 @@ initializeSocketListeners: () => {
     console.log("📨 newMessage received:", message);
     const { privateMessages } = get();
     
-    // Extract sender ID
     const senderId = typeof message.senderId === "string" 
       ? message.senderId 
       : message.senderId?._id;
     
-    // SKIP messages from current user (already added optimistically)
     if (senderId === currentUserId) {
       console.log("⏭️  Skipping own message from socket");
       return;
     }
     
-    // Check if message already exists to avoid duplicates
     const messageExists = privateMessages.some(m => m._id === message._id);
     if (!messageExists) {
       console.log("✅ Adding new message to state");
       get().addIncomingMessage(message);
       
-      // Update recent chats
       const partnerId = typeof message.senderId === "string" 
         ? message.senderId 
         : message.senderId?._id;
@@ -263,39 +258,74 @@ initializeSocketListeners: () => {
     }
   });
 
-  // CRITICAL: Listen for status updates for YOUR messages
+  // Listen for status updates for YOUR messages
   socket.on("messageStatusUpdate", (data: {
-  messageId: string;
-  status: Message["status"];
-}) => {
-  console.log("🔄 messageStatusUpdate received:", data);
-  
-  set((state) => {
-    // Find the most recent temp message (should be last in array)
-    const tempMessageIndex = state.privateMessages.findIndex(m => m._id.startsWith('temp-'));
+    messageId: string;
+    status: Message["status"];
+  }) => {
+    console.log("🔄 messageStatusUpdate received:", data);
     
-    if (tempMessageIndex !== -1) {
-      // Found a temp message - replace its ID and update status
-      const updatedMessages = [...state.privateMessages];
-      updatedMessages[tempMessageIndex] = {
-        ...updatedMessages[tempMessageIndex],
-        _id: data.messageId,
-        status: data.status
-      };
+    set((state) => {
+      const tempMessageIndex = state.privateMessages.findIndex(m => m._id.startsWith('temp-'));
       
-      console.log("✅ Updated temp message at index", tempMessageIndex, "→", data.messageId, data.status);
-      return { privateMessages: updatedMessages };
-    } else {
-      // No temp message found - just update status of existing message
+      if (tempMessageIndex !== -1) {
+        const updatedMessages = [...state.privateMessages];
+        updatedMessages[tempMessageIndex] = {
+          ...updatedMessages[tempMessageIndex],
+          _id: data.messageId,
+          status: data.status
+        };
+        
+        console.log("✅ Updated temp message at index", tempMessageIndex, "→", data.messageId, data.status);
+        return { privateMessages: updatedMessages };
+      } else {
+        const updatedMessages = state.privateMessages.map(m =>
+          m._id === data.messageId ? { ...m, status: data.status } : m
+        );
+        
+        console.log("✅ Updated existing message status:", data.messageId, data.status);
+        return { privateMessages: updatedMessages };
+      }
+    });
+  });
+
+  // ⭐ NEW: Listen for bulk status updates when user comes online
+  socket.on("bulkMessageStatusUpdate", (data: {
+    messageIds: string[];
+    status: Message["status"];
+  }) => {
+    console.log("📦 bulkMessageStatusUpdate received:", data);
+    
+    // Create the Set BEFORE using it in set()
+    const messageIdSet = new Set(data.messageIds);
+    
+    set((state) => {
+      // Update messages
       const updatedMessages = state.privateMessages.map(m =>
-        m._id === data.messageId ? { ...m, status: data.status } : m
+        messageIdSet.has(m._id) ? { ...m, status: data.status } : m
       );
       
-      console.log("✅ Updated existing message status:", data.messageId, data.status);
-      return { privateMessages: updatedMessages };
-    }
+      // Update recent chats with new status
+      const updatedChats = state.chats.map(chat => {
+        if (chat.lastMessage && messageIdSet.has(chat.lastMessage._id)) {
+          return {
+            ...chat,
+            lastMessage: {
+              ...chat.lastMessage,
+              status: data.status
+            }
+          };
+        }
+        return chat;
+      });
+      
+      console.log(`✅ Updated ${data.messageIds.length} messages to ${data.status}`);
+      return { 
+        privateMessages: updatedMessages,
+        chats: updatedChats
+      };
+    });
   });
-});
 
   // Listen for recent chat updates
   socket.on("recentChatUpdated", (data: {
@@ -342,18 +372,20 @@ initializeSocketListeners: () => {
   console.log("✅ Socket listeners initialized for private chat");
 },
 
-  cleanupSocketListeners: () => {
-    const socket = useAuthStore.getState().socket;
-    if (!socket) return;
+cleanupSocketListeners: () => {
+  const socket = useAuthStore.getState().socket;
+  if (!socket) return;
 
-    console.log("Cleaning up socket listeners...");
+  console.log("Cleaning up socket listeners...");
 
-    socket.off("newMessage");
-    socket.off("messageStatusUpdate");
-    socket.off("recentChatUpdated");
-    socket.off("messageEdited");
-    socket.off("messageDeleted");
-  },
+  socket.off("newMessage");
+  socket.off("messageStatusUpdate");
+  socket.off("bulkMessageStatusUpdate");
+  socket.off("recentChatUpdated");
+  socket.off("messageEdited");
+  socket.off("messageDeleted");
+  socket.off("error");
+},
 
   updateRecentChat: (data: { partnerId: string; lastMessage: Message }) => {
   set(state => {
