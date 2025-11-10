@@ -11,7 +11,7 @@ import DeleteModalWrapper from './chat-window/DeleteModalWrapper';
 import { useChatActions } from './chat-window/useChatActions';
 import { getAuthUserId } from '@/utils/utils';
 import { MoreActionsModal } from '../modals/MoreActionsModal';
-import { User, MessageCircle } from 'lucide-react';
+import { User, MessageCircle } from 'lucide-react'; 
 
 interface ChatWindowProps {
   selectedUser: any;
@@ -27,7 +27,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     cleanupSocketListeners     
   } = usePrivateChatStore();
   const { groupMessages, getGroupMessages, initializeGroupSocketListeners, cleanupGroupSocketListeners } = useGroupStore(); 
-  const { setSelectedUser } = useUIStore();
+  const { setSelectedUser, scrollToMessageId, setScrollToMessageId } = useUIStore();
   const { pinnedMessages, loadPinnedMessagesForChat } = usePinningStore();
   const { showToast } = useToastStore();
   const { socket, authUser } = useAuthStore(); // NEW: Get socket from auth store
@@ -73,6 +73,19 @@ useEffect(() => {
     // via the socket listeners we initialized above
     console.log('Chat window ready for real-time messages');
   }, []);
+
+  useEffect(() => {
+    if (scrollToMessageId && messageListRef.current) {
+      // Wait for messages to load
+      const timer = setTimeout(() => {
+        messageListRef.current?.scrollToMessage(scrollToMessageId);
+        // Clear the scroll target after scrolling
+        setScrollToMessageId(null);
+      }, 500); // Adjust delay as needed
+
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToMessageId, setScrollToMessageId, messages]);
 
   const {
     handleBack,

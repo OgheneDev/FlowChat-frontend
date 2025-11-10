@@ -22,6 +22,8 @@ interface UIState {
   setSelectedUser: (id: string | null) => void;
   setReplyingTo: (msg: ReplyContext | null) => void;
   clearReply: () => void;
+  scrollToMessageId: string | null;
+  setScrollToMessageId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -32,4 +34,6 @@ export const useUIStore = create<UIState>((set) => ({
   setSelectedUser: (selectedUser) => set({ selectedUser }),
   setReplyingTo: (msg) => set({ replyingTo: msg }),
   clearReply: () => set({ replyingTo: null }),
+  scrollToMessageId: null,
+  setScrollToMessageId: (id) => set({ scrollToMessageId: id }),
 }));

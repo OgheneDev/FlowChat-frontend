@@ -9,7 +9,7 @@ import { useToastStore } from '@/stores';
 import ConfirmModal from './sidebar/ConfirmModal';
 import CreateGroupModal from '../modals/CreateGroupModal';
 import SettingsModal from '../modals/SettingsModal';
-import { axiosInstance } from '@/api/axios'; 
+import { axiosInstance } from '@/api/axios';  
 
 interface AuthUser {
   profilePic?: string;
@@ -249,28 +249,30 @@ const ChatSidebar = () => {
   };
 
   const handleMessageClick = (message: any) => {
-    if (message.groupId) {
-      // For group messages
-      handleGroupClick(message.groupId);
+  const { setScrollToMessageId } = useUIStore.getState();
+  
+  if (message.groupId) {
+    handleGroupClick(message.groupId);
+    // Set the message ID to scroll to after opening chat
+    setScrollToMessageId(message._id);
+  } else {
+    let otherUser;
+    
+    if (message.senderId?._id === authUser?._id) {
+      otherUser = message.receiverId?._id ? message.receiverId : { _id: message.receiverId };
     } else {
-      // For private messages - determine the other user
-      let otherUser;
-      
-      if (message.senderId?._id === authUser?._id) {
-        // I sent this message, so open chat with receiver
-        otherUser = message.receiverId?._id ? message.receiverId : { _id: message.receiverId };
-      } else {
-        // Someone sent me this message, so open chat with sender
-        otherUser = message.senderId;
-      }
-      
-      if (otherUser && (otherUser._id || otherUser)) {
-        handleUserClick(typeof otherUser === 'string' ? { _id: otherUser } : otherUser);
-      } else {
-        showToast('Unable to open chat', 'error');
-      }
+      otherUser = message.senderId;
     }
-  };
+    
+    if (otherUser && (otherUser._id || otherUser)) {
+      handleUserClick(typeof otherUser === 'string' ? { _id: otherUser } : otherUser);
+      // Set the message ID to scroll to after opening chat
+      setScrollToMessageId(message._id);
+    } else {
+      showToast('Unable to open chat', 'error');
+    }
+  }
+};
 
   const isLoading = isContactsLoading || isChatsLoading || isGroupsLoading;
 

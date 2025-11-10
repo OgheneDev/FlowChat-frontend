@@ -89,26 +89,27 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }));
 
     const highlightMessage = (messageId: string) => {
-      if (highlightedMessageRef.current) {
-        const prevElement = messageRefs.current.get(highlightedMessageRef.current);
-        if (prevElement) {
-          prevElement.classList.remove('message-highlight');
-        }
-      }
+  if (highlightedMessageRef.current) {
+    const prevElement = messageRefs.current.get(highlightedMessageRef.current);
+    if (prevElement) {
+      prevElement.classList.remove('message-highlight');
+    }
+  }
 
-      const element = messageRefs.current.get(messageId);
-      if (element) {
-        element.classList.add('message-highlight');
-        highlightedMessageRef.current = messageId;
+  const element = messageRefs.current.get(messageId);
+  if (element) {
+    element.classList.add('message-highlight');
+    highlightedMessageRef.current = messageId;
 
-        setTimeout(() => {
-          if (highlightedMessageRef.current === messageId) {
-            element.classList.remove('message-highlight');
-            highlightedMessageRef.current = null;
-          }
-        }, 3000);
+    // Extended highlight duration for search results
+    setTimeout(() => {
+      if (highlightedMessageRef.current === messageId) {
+        element.classList.remove('message-highlight');
+        highlightedMessageRef.current = null;
       }
-    };
+    }, 4000); // 4 seconds for search results
+  }
+};
 
     const setMessageRef = (messageId: string, element: HTMLDivElement | null) => {
       if (element) {
@@ -144,24 +145,37 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       onSelectedMessagesChange?.(Array.from(selectedMessages));
     }, [selectedMessages, onSelectedMessagesChange]);
 
-    const styles = `
+    const enhancedStyles = `
   .message-highlight {
-    animation: highlight-pulse 3s ease-in-out;
-    border-left: 3px solid #00d9ff;
-    background: linear-gradient(90deg, rgba(0, 217, 255, 0.1) 0%, transparent 100%);
+    animation: highlight-pulse 4s ease-in-out;
+    border-left: 4px solid #00d9ff;
+    background: linear-gradient(90deg, rgba(0, 217, 255, 0.15) 0%, transparent 100%);
+    box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+    transform: scale(1.02);
   }
   
   @keyframes highlight-pulse {
-    0% { background: rgba(0, 217, 255, 0.2); }
-    50% { background: rgba(0, 217, 255, 0.1); }
-    100% { background: rgba(0, 217, 255, 0.05); }
+    0% { 
+      background: rgba(0, 217, 255, 0.25);
+      transform: scale(1.02);
+    }
+    20% { 
+      background: rgba(0, 217, 255, 0.2);
+    }
+    50% { 
+      background: rgba(0, 217, 255, 0.15);
+    }
+    100% { 
+      background: rgba(0, 217, 255, 0.05);
+      transform: scale(1);
+    }
   }
 `;
 
 // Add the styles to the document head
 useEffect(() => {
   const styleSheet = document.createElement('style');
-  styleSheet.innerText = styles;
+  styleSheet.innerText = enhancedStyles;
   document.head.appendChild(styleSheet);
   
   return () => {
