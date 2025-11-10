@@ -17,6 +17,12 @@ interface LoginData {
 
 interface UpdateProfileData {
   profilePic?: string;
+  about?: string;
+  
+}
+
+interface DeletePasswordData {
+  password: string;
 }
 
 interface AuthUser {
@@ -24,6 +30,8 @@ interface AuthUser {
   email: string;
   fullName: string;
   profilePic?: string;
+  about?: string
+  createdAt?: string | Date;
 }
 
 interface AuthStore {
@@ -32,6 +40,7 @@ interface AuthStore {
   isSigningUp: boolean;
   isLoggingIn: boolean;
   isUpdating: boolean;
+  isDeleting: boolean;
   socket: Socket | null;
   onlineUsers: string[];
   isUserOnline: (userId: string) => boolean;
@@ -42,6 +51,7 @@ interface AuthStore {
   login: (data: LoginData) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileData) => Promise<void>;
+  deleteAccount: (data: DeletePasswordData) => Promise<void>;
   connectSocket: () => void;
   disconnectSocket: () => void;
 }
@@ -52,6 +62,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isSigningUp: false,
   isLoggingIn: false,
   isUpdating: false,
+  isDeleting: false,
   socket: null,
   onlineUsers: [],
 
@@ -118,6 +129,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.log("Error in update profile:", error);
     } finally {
       set({ isUpdating: false });
+    }
+  },
+
+  deleteAccount: async (data) => {
+    set({isDeleting: true});
+    try {
+      const response = await axiosInstance.delete("/auth/delete", {data});
+      set({ authUser: null });
+      get().disconnectSocket();
+    } catch (error) {
+      console.log("Error deleting account:", error)
+    } finally {
+      set({ isDeleting: false })
     }
   },
 

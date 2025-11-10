@@ -171,7 +171,7 @@ useEffect(() => {
 
     if (isLoading) {
       return (
-        <div className="flex-1 overflow-y-auto py-4 px-2 bg-gradient-to-b from-transparent via-[#0a0a0a]/20 to-transparent">
+        <div className="flex-1 overflow-y-auto py-4 px-2">
           {Array.from({ length: 5 }).map((_, i) => (
             <MessageSkeleton key={i} />
           ))}

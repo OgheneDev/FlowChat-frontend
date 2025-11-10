@@ -23,8 +23,8 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     privateMessages, 
     isMessagesLoading, 
     getPrivateMessages, 
-    initializeSocketListeners,  // NEW: Import socket methods
-    cleanupSocketListeners      // NEW: Import socket methods
+    initializeSocketListeners, 
+    cleanupSocketListeners     
   } = usePrivateChatStore();
   const { groupMessages, getGroupMessages, initializeGroupSocketListeners, cleanupGroupSocketListeners } = useGroupStore(); 
   const { setSelectedUser } = useUIStore();
