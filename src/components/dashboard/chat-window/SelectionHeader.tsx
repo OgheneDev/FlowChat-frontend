@@ -35,7 +35,7 @@ const SelectionHeader = ({
           >
             <X className="w-5 h-5 text-white" />
           </button>
-          <h3 className="font-semibold text-white text-lg">{selectedCount} <span className='hidden md:block'>selected</span></h3>
+          <h3 className="font-semibold text-white text-lg">{selectedCount}</h3>
         </div>
 
         <div className="flex items-center gap-2">

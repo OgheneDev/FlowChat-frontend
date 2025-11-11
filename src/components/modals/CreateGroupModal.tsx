@@ -4,9 +4,7 @@ import React, { useState, useRef } from 'react';
 import { X, Camera, User, Loader2, Check, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { useGroupStore } from '@/stores';
-import { useToastStore } from '@/stores';
-import { useContactStore } from '@/stores';
+import { useGroupStore, useContactStore, useToastStore, useAuthStore } from '@/stores';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -20,9 +18,10 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { createGroup, isCreatingGroup } = useGroupStore();
+  const { createGroup, isCreatingGroup, joinGroupRoom } = useGroupStore();
   const { contacts } = useContactStore();
   const { showToast } = useToastStore();
+  const { authUser } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -30,6 +29,18 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file size (e.g., 5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size should be less than 5MB', 'error');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select a valid image file', 'error');
+      return;
+    }
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -61,16 +72,27 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
 
     setIsSubmitting(true);
     try {
-      await createGroup({
+      // Include current user in members automatically
+      const allMembers = authUser?._id 
+        ? [...selectedMembers, authUser._id] 
+        : selectedMembers;
+
+      const newGroup = await createGroup({
         name: groupName.trim(),
         description: groupDescription,
-        members: selectedMembers,
+        members: allMembers,
         groupImage: selectedImage || undefined,
       });
+
+      // Automatically join the group room after creation
+      if (newGroup?._id) {
+        joinGroupRoom(newGroup._id);
+      }
 
       showToast('Group created successfully', 'success');
       handleClose();
     } catch (error: any) {
+      console.error('Group creation error:', error);
       showToast(error.message || 'Failed to create group', 'error');
     } finally {
       setIsSubmitting(false);
@@ -82,8 +104,16 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
     setGroupDescription('');
     setSelectedMembers([]);
     setSelectedImage(null);
+    setIsSubmitting(false);
     onClose();
   };
+
+  // Filter out current user from contacts to avoid self-selection
+  const filteredContacts = contacts?.filter(contact => 
+    contact._id !== authUser?._id
+  ) || [];
+
+  const isSubmitDisabled = isSubmitting || isCreatingGroup || !groupName.trim() || selectedMembers.length === 0;
 
   return (
     <AnimatePresence>
@@ -112,6 +142,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
               <button
                 onClick={handleClose}
                 className="p-2 rounded-full cursor-pointer hover:bg-[#2a2a2a] transition-colors"
+                disabled={isSubmitting || isCreatingGroup}
               >
                 <X className="w-5 h-5 text-white" />
               </button>
@@ -127,7 +158,8 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 rounded-full overflow-hidden bg-[#2a2a2a] ring-4 ring-[#111111] hover:ring-[#00d9ff] transition-all cursor-pointer"
+                    className="w-24 h-24 rounded-full overflow-hidden bg-[#2a2a2a] ring-4 ring-[#111111] hover:ring-[#00d9ff] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting || isCreatingGroup}
                   >
                     {selectedImage ? (
                       <Image
@@ -152,6 +184,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                     ref={fileInputRef}
                     onChange={handleImageUpload}
                     className="hidden"
+                    disabled={isSubmitting || isCreatingGroup}
                   />
                 </div>
               </div>
@@ -166,8 +199,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="Enter group name"
-                  className="w-full px-3 py-2 bg-[#1e1e1e] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00d9ff]"
+                  className="w-full px-3 py-2 bg-[#1e1e1e] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00d9ff] disabled:opacity-50 disabled:cursor-not-allowed"
                   maxLength={50}
+                  disabled={isSubmitting || isCreatingGroup}
                 />
                 <p className="text-right text-xs text-[#666] mt-1">{groupName.length}/50</p>
               </div>
@@ -180,8 +214,9 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                   onChange={(e) => setGroupDescription(e.target.value)}
                   placeholder="What's this group about?"
                   rows={3}
-                  className="w-full p-3 bg-[#1e1e1e] rounded-lg text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00d9ff]"
+                  className="w-full p-3 bg-[#1e1e1e] rounded-lg text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00d9ff] disabled:opacity-50 disabled:cursor-not-allowed"
                   maxLength={1000}
+                  disabled={isSubmitting || isCreatingGroup}
                 />
                 <p className="text-right text-xs text-[#666] mt-1">{groupDescription.length}/1000</p>
               </div>
@@ -198,16 +233,16 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                 </div>
 
                 <div className="max-h-64 overflow-y-auto space-y-1">
-                  {contacts && contacts.length > 0 ? (
-                    contacts.map((contact) => {
+                  {filteredContacts && filteredContacts.length > 0 ? (
+                    filteredContacts.map((contact) => {
                       const isSelected = selectedMembers.includes(contact._id);
                       return (
                         <div
                           key={contact._id}
-                          onClick={() => toggleMemberSelection(contact._id)}
+                          onClick={() => !isSubmitting && !isCreatingGroup && toggleMemberSelection(contact._id)}
                           className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
                             isSelected ? "bg-[#00d9ff]/10" : "hover:bg-[#1e1e1e]"
-                          }`}
+                          } ${(isSubmitting || isCreatingGroup) ? "opacity-50 cursor-not-allowed" : ""}`}
                         >
                           <div className="relative flex-shrink-0">
                             <div className="w-11 h-11 rounded-full overflow-hidden bg-[#2a2a2a]">
@@ -249,7 +284,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
                       <div className="w-16 h-16 rounded-xl bg-[#2a2a2a] flex items-center justify-center mx-auto mb-3">
                         <User className="w-8 h-8 text-[#666]" />
                       </div>
-                      <p className="text-[#ccc]">No contacts yet</p>
+                      <p className="text-[#ccc]">No contacts available</p>
                       <p className="text-[#999] text-sm mt-1">Add contacts to create a group</p>
                     </div>
                   )}
@@ -262,13 +297,14 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
               <div className="flex gap-2">
                 <button
                   onClick={handleClose}
-                  className="flex-1 py-2 text-sm cursor-pointer text-[#999] hover:text-white transition-colors"
+                  disabled={isSubmitting || isCreatingGroup}
+                  className="flex-1 py-2 text-sm cursor-pointer text-[#999] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || isCreatingGroup || !groupName.trim() || selectedMembers.length === 0}
+                  disabled={isSubmitDisabled}
                   className="flex-1 py-2 bg-[#00d9ff] cursor-pointer text-black rounded-lg text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#00b8d4] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {(isSubmitting || isCreatingGroup) ? (

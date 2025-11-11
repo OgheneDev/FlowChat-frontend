@@ -71,7 +71,7 @@ useEffect(() => {
   useEffect(() => {
     // This effect will automatically handle real-time updates
     // via the socket listeners we initialized above
-    console.log('Chat window ready for real-time messages');
+    console.log('Chat window ready for real-time messages'); 
   }, []);
 
   useEffect(() => {

@@ -263,7 +263,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
           <div className="flex items-center justify-center my-6">
             <div className="px-4 py-1.5 bg-[#1a1a1a]/90 backdrop-blur-md rounded-full text-xs font-medium text-[#888] border border-[#2a2a2a] shadow-sm">
               {new Date(message.createdAt).toLocaleDateString("en-US", {
-                weekday: "short",
+                weekday: "short", 
                 month: "short",
                 day: "numeric",
               })}

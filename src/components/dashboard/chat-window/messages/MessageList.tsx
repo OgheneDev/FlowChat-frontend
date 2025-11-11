@@ -5,6 +5,7 @@ import { usePrivateChatStore, useGroupStore } from "@/stores";
 import { useAuthStore } from "@/stores";
 import MessageItem from "./MessageItem";
 import MessageSkeleton from "./MessageSkeleton"; 
+import GroupEventMessage from "../GroupEventMessage";
 
 interface MessageListProps {
   isLoading: boolean;
@@ -179,7 +180,7 @@ useEffect(() => {
   document.head.appendChild(styleSheet);
   
   return () => {
-    document.head.removeChild(styleSheet);
+    document.head.removeChild(styleSheet); 
   };
 }, []);
 
@@ -218,23 +219,45 @@ useEffect(() => {
 
     return (
       <div className={`flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent ${isSelectionMode ? 'selection-mode' : ''}`}>
-        {messages.map((message: any, index: number) => (
-          <MessageItem
-            key={message._id}
-            message={message}
-            index={index}
-            type={type}
-            authUser={authUser}
-            messages={messages}
-            isSendingMessage={isSendingMessage}
-            selectedUser={selectedUser}
-            isSelectionMode={isSelectionMode}
-            isSelected={selectedMessages.has(message._id)}
-            onToggleSelect={toggleMessageSelection}
-            onSelectMode={handleSelectMode} // Pass the handler
-            ref={(el) => setMessageRef(message._id, el)}
-          />
-        ))}
+{messages.map((message: any, index: number) => {
+  // Check if this is a group event message using the event types
+  const isGroupEvent = [
+    'member_joined', 
+    'member_left', 
+    'member_removed', 
+    'admin_promoted', 
+    'group_created',
+    'group_updated'
+  ].includes(message.type);
+
+  if (isGroupEvent) {
+    return (
+      <GroupEventMessage 
+        key={message._id || `event-${index}`} 
+        event={message} 
+      />
+    );
+  }
+
+  // Regular message
+  return (
+    <MessageItem
+      key={message._id}
+      message={message}
+      index={index}
+      type={type}
+      authUser={authUser}
+      messages={messages}
+      isSendingMessage={isSendingMessage}
+      selectedUser={selectedUser}
+      isSelectionMode={isSelectionMode}
+      isSelected={selectedMessages.has(message._id)}
+      onToggleSelect={toggleMessageSelection}
+      onSelectMode={handleSelectMode}
+      ref={(el) => setMessageRef(message._id, el)}
+    />
+  );
+})}
         <div ref={messagesEndRef} className="h-1" />
       </div>
     );

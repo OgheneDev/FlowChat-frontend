@@ -1,9 +1,8 @@
-// components/chat-window/ChatHeader.tsx
 import { ArrowLeft, Users, Pin } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import GroupInfoModal from './GroupInfoModal';
-import { useAuthStore } from '@/stores';
+import { useAuthStore, useGroupStore } from '@/stores';
 
 interface ChatHeaderProps {
   selectedUser: any;
@@ -24,11 +23,17 @@ const ChatHeader = ({
 }: ChatHeaderProps) => {
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const { isUserOnline } = useAuthStore();
+  const { groups } = useGroupStore();
   
-  const profilePic = selectedUser?.profilePic || selectedUser?.groupImage;
-  const displayName = type === 'group' ? selectedUser?.name : selectedUser?.fullName;
-  const memberCount = selectedUser?.members?.length || 0;
-  const online = type !== 'group' && isUserOnline(selectedUser?._id);
+  // Get the latest group data from the store for real-time updates
+  const currentGroupData = type === 'group' 
+    ? groups.find(g => g._id === selectedUser?._id) || selectedUser
+    : selectedUser;
+  
+  const profilePic = currentGroupData?.profilePic || currentGroupData?.groupImage;
+  const displayName = type === 'group' ? currentGroupData?.name : currentGroupData?.fullName;
+  const memberCount = currentGroupData?.members?.length || 0;
+  const online = type !== 'group' && isUserOnline(currentGroupData?._id);
   const initials = displayName?.charAt(0).toUpperCase() || '?';
 
   const handleGroupInfoClick = () => {
@@ -83,7 +88,7 @@ const ChatHeader = ({
                 {type !== 'group' && online && (
                   <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#00ff88] border-2 border-[#1e1e1e] rounded-full animate-pulse"></span>
                 )}
-              </div>
+              </div> 
 
               {/* Text info */}
               <div className="flex-1 min-w-0">
@@ -117,7 +122,7 @@ const ChatHeader = ({
         <GroupInfoModal
           isOpen={showGroupInfo}
           onClose={() => setShowGroupInfo(false)}
-          group={selectedUser}
+          group={currentGroupData}
         />
       )}
     </>

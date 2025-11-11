@@ -97,7 +97,6 @@ export const useStarringStore = create<StarringState>((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to load starred data:", error);
-      useToastStore.getState().showToast("Failed to load starred chats", "error");
       set({ isLoading: false });
     }
   },
