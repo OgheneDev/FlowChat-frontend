@@ -57,7 +57,7 @@ const UserInfoModal = ({ isOpen, onClose, user }: UserInfoModalProps) => {
             <div className="flex items-center justify-between p-3 bg-[#1e1e1e] border-b border-[#2a2a2a]">
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-[#2a2a2a] transition-colors"
+                className="p-2 rounded-full cursor-pointer hover:bg-[#2a2a2a] transition-colors"
               >
                 <X className="w-5 h-5 text-white" />
               </button>
