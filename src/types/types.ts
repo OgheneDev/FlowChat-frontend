@@ -19,7 +19,7 @@ export interface Message {
     receiverId: User
     senderName?: string
     createdAt: string
-    status: 'sent' | 'delivered' | 'read'
+    status: 'sent' | 'delivered' | 'seen'
     image?: string | null
     replyTo?: string
 }

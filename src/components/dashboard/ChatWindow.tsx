@@ -24,13 +24,20 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     isMessagesLoading, 
     getPrivateMessages, 
     initializeSocketListeners, 
-    cleanupSocketListeners     
+    cleanupSocketListeners,
+    markMessagesAsSeen     
   } = usePrivateChatStore();
-  const { groupMessages, getGroupMessages, initializeGroupSocketListeners, cleanupGroupSocketListeners } = useGroupStore(); 
+  const { 
+    groupMessages, 
+    getGroupMessages, 
+    initializeGroupSocketListeners, 
+    cleanupGroupSocketListeners, 
+    markGroupMessagesAsSeen 
+  } = useGroupStore(); 
   const { setSelectedUser, scrollToMessageId, setScrollToMessageId } = useUIStore();
   const { pinnedMessages, loadPinnedMessagesForChat } = usePinningStore();
   const { showToast } = useToastStore();
-  const { socket, authUser } = useAuthStore(); // NEW: Get socket from auth store
+  const { socket, authUser } = useAuthStore();
 
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -45,48 +52,71 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     setIsSelectionMode(false);
   }, []);
 
-useEffect(() => {
-  if (authUser && socket?.connected) {
-    console.log('Initializing socket listeners for real-time chat...');
-    
-    if (type === 'group') {
-      initializeGroupSocketListeners();
-    } else {
-      initializeSocketListeners();
-    }
-  }
-
-  // Cleanup when component unmounts
-  return () => {
-    console.log('Cleaning up socket listeners...');
-    if (type === 'group') {
-      cleanupGroupSocketListeners();
-    } else {
-      cleanupSocketListeners();
-    }
-  };
-}, [authUser, socket?.connected, type, initializeSocketListeners, cleanupSocketListeners, initializeGroupSocketListeners, cleanupGroupSocketListeners]);
-
-  // NEW: Handle real-time message status updates
+  // Socket initialization and cleanup
   useEffect(() => {
-    // This effect will automatically handle real-time updates
-    // via the socket listeners we initialized above
-    console.log('Chat window ready for real-time messages'); 
-  }, []);
+    if (authUser && socket?.connected) {
+      console.log('Initializing socket listeners for real-time chat...');
+      
+      if (type === 'group') {
+        initializeGroupSocketListeners();
+      } else {
+        initializeSocketListeners();
+      }
+    }
 
+    return () => {
+      console.log('Cleaning up socket listeners...');
+      if (type === 'group') {
+        cleanupGroupSocketListeners();
+      } else {
+        cleanupSocketListeners();
+      }
+    };
+  }, [authUser, socket?.connected, type, initializeSocketListeners, cleanupSocketListeners, initializeGroupSocketListeners, cleanupGroupSocketListeners]);
+
+  // Mark messages as seen when component mounts with selected user
+  useEffect(() => {
+    if (selectedUser) {
+      const timer = setTimeout(() => {
+        console.log(`👀 Marking ${type} messages as seen for:`, selectedUser._id);
+        if (type === 'group') {
+          markGroupMessagesAsSeen(selectedUser._id);
+        } else {
+          markMessagesAsSeen(selectedUser._id);
+        }
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [selectedUser, type, markMessagesAsSeen, markGroupMessagesAsSeen]);
+
+  // Handle scroll to message
   useEffect(() => {
     if (scrollToMessageId && messageListRef.current) {
-      // Wait for messages to load
       const timer = setTimeout(() => {
         messageListRef.current?.scrollToMessage(scrollToMessageId);
-        // Clear the scroll target after scrolling
         setScrollToMessageId(null);
-      }, 500); // Adjust delay as needed
+      }, 500);
 
       return () => clearTimeout(timer);
     }
   }, [scrollToMessageId, setScrollToMessageId, messages]);
 
+  // Load messages and pinned messages when selectedUser changes
+  useEffect(() => {
+    if (selectedUser) {
+      console.log(`Loading ${type} messages for:`, selectedUser._id);
+      if (type === 'group') {
+        getGroupMessages(selectedUser._id);
+        loadPinnedMessagesForChat({ groupId: selectedUser._id });
+      } else {
+        getPrivateMessages(selectedUser._id);
+        loadPinnedMessagesForChat({ chatPartnerId: selectedUser._id });
+      }
+    }
+  }, [selectedUser, type, getPrivateMessages, getGroupMessages, loadPinnedMessagesForChat]);
+
+  // Chat actions
   const {
     handleBack,
     handleStarSelected,
@@ -122,18 +152,6 @@ useEffect(() => {
     isSelectionMode,
     setIsSelectionMode,
   });
-
-  useEffect(() => {
-    if (selectedUser) {
-      if (type === 'group') {
-        getGroupMessages(selectedUser._id);
-        loadPinnedMessagesForChat({ groupId: selectedUser._id });
-      } else {
-        getPrivateMessages(selectedUser._id);
-        loadPinnedMessagesForChat({ chatPartnerId: selectedUser._id });
-      }
-    }
-  }, [selectedUser, type, getPrivateMessages, getGroupMessages, loadPinnedMessagesForChat]);
 
   if (!selectedUser) {
     return <EmptyChatState type={type} />;

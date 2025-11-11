@@ -44,6 +44,7 @@ interface PrivateChatState {
   editMessage: (messageId: string, data: EditMessageData) => Promise<Message>;
   addIncomingMessage: (msg: Message) => void;
   updateMessageStatus: (messageId: string, status: Message["status"]) => void;
+  markMessagesAsSeen: (chatPartnerId: string) => Promise<void>;
 
   // Socket methods
   initializeSocketListeners: () => void;
@@ -60,7 +61,7 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   isLoading: false,
   isMessagesLoading: false,
   isSendingMessage: false,
-  isDeletingMessage: false,
+  isDeletingMessage: false, 
   isEditingMessage: false,
 
   getChatPartners: async () => {
@@ -207,6 +208,43 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
       ),
     }));
   },
+
+  // In privateChats.ts - fix the markMessagesAsSeen method
+markMessagesAsSeen: async (chatPartnerId: string) => {
+  try {
+    const { privateMessages } = get();
+    const currentUserId = useAuthStore.getState().authUser?._id;
+    
+    const unreadMessages = privateMessages.filter(msg => {
+      const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+      return senderId !== currentUserId && msg.status !== 'seen';
+    });
+
+    if (unreadMessages.length === 0) return;
+
+    // Update optimistically
+    set(state => ({
+      privateMessages: state.privateMessages.map(msg => {
+        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+        if (senderId !== currentUserId && msg.status !== 'seen') {
+          return { ...msg, status: 'seen' as const };
+        }
+        return msg;
+      })
+    }));
+
+    // Send to server via socket
+    const socket = useAuthStore.getState().socket;
+    if (socket) {
+      socket.emit("markMessagesAsSeen", { senderId: chatPartnerId });
+    }
+    
+  } catch (error) {
+    console.error('Error marking messages as seen:', error);
+  }
+},
+
+  
 
   // Add this to your initializeSocketListeners in usePrivateChatStore
 
@@ -363,6 +401,26 @@ initializeSocketListeners: () => {
       privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
     }));
   });
+
+  socket.on("messagesSeen", (data: { seenBy: string; senderId: string }) => {
+  console.log("👀 Messages seen by user:", data.seenBy);
+  
+  const currentUserId = useAuthStore.getState().authUser?._id;
+  
+  // If the current user's messages were seen by someone else
+  if (data.senderId === currentUserId) {
+    set((state) => ({
+      privateMessages: state.privateMessages.map(msg => {
+        // Only update messages sent by current user that are not already seen
+        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+        if (senderId === currentUserId && msg.status !== 'seen') {
+          return { ...msg, status: 'seen' as const };
+        }
+        return msg;
+      })
+    }));
+  }
+});
 
   // Listen for socket errors
   socket.on("error", (error: { message: string }) => {

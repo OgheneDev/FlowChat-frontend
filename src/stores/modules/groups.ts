@@ -119,6 +119,8 @@ interface GroupState {
   sendGroupMessage: (groupId: string, data: sendMessageData) => Promise<Message>;
   deleteMessage: (data: DeleteMessageData) => Promise<void>;
   editMessage: (messageId: string, data: EditMessageData) => Promise<Message>;
+  markGroupMessagesAsSeen: (groupId: string) => Promise<void>;
+  updateMultipleMessageStatus: (messageIds: string[], status: Message["status"]) => void;
 
   // Socket Methods
   addIncomingGroupMessage: (msg: Message) => void;
@@ -603,6 +605,51 @@ export const useGroupStore = create<GroupState>((set, get) => ({
     } finally {
       set({ isEditingMessage: false });
     }
+  },
+
+  markGroupMessagesAsSeen: async (groupId: string) => {
+    try {
+      const { groupMessages } = get();
+      const currentUserId = useAuthStore.getState().authUser?._id;
+      
+      const unreadMessages = groupMessages.filter(msg => {
+        // Only process regular messages, not event messages
+        if (isGroupEventMessage(msg)) return false;
+        
+        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+        return senderId !== currentUserId && msg.status !== 'seen';
+      });
+
+      if (unreadMessages.length === 0) return;
+
+      // Update optimistically
+      get().updateMultipleMessageStatus(
+        unreadMessages.map(msg => msg._id),
+        'seen'
+      );
+
+      // Send to server via socket for group messages
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("markGroupMessagesAsSeen", { groupId });
+      }
+      
+    } catch (error) {
+      console.error('Error marking group messages as seen:', error);
+    }
+  },
+
+
+  updateMultipleMessageStatus: (messageIds: string[], status: Message["status"]) => {
+    set((state) => ({
+      groupMessages: state.groupMessages.map((m) => {
+        // Only update regular messages, not event messages
+        if (!isGroupEventMessage(m) && messageIds.includes(m._id)) {
+          return { ...m, status } as Message;
+        }
+        return m;
+      }),
+    }));
   },
 
   // In groups.ts - enhance the addGroupEventMessage function
