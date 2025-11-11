@@ -593,68 +593,78 @@ const handleMakeAdmin = async (memberId: string, memberName: string) => {
               ) : (
                 <>
                   {/* Group Header */}
-                  <div className="bg-gradient-to-b from-[#1a1a1a] to-[#111111] px-5 pt-6 pb-8">
-                    <div className="flex flex-col items-center">
-                      <div className="relative">
-                        <div className="w-24 h-24 rounded-full overflow-hidden bg-[#2a2a2a] ring-4 ring-[#111111] relative">
-                          {imagePreview ? (
-                            <Image
-                              src={imagePreview}
-                              alt={currentGroupData.name}
-                              width={96}
-                              height={96}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Users className="w-12 h-12 text-[#666]" />
-                            </div>
-                          )}
-                          {isUploadingImage && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                              <Loader2 className='animate-spin h-6 w-6 text-white' />
-                            </div>
-                          )}
-                        </div>
-                        {isAdmin && (
-                          <>
-                            <input
-                              type="file"
-                              ref={fileInputRef}
-                              onChange={handleImageUpload}
-                              accept="image/*"
-                              className="hidden"
-                            />
-                            <button 
-                              onClick={() => fileInputRef.current?.click()}
-                              disabled={isUploadingImage}
-                              className="absolute bottom-0 right-0 p-2 bg-[#00d9ff] rounded-full shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <Edit2 className="w-4 h-4 text-white" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+<div className="bg-gradient-to-b from-[#1a1a1a] to-[#111111] px-5 pt-6 pb-8">
+  <div className="flex flex-col items-center">
+    <div className="relative">
+      {/* Group Image with Hover Effect */}
+      <div className="relative group">
+        <button
+          onClick={() => !isUploadingImage && isAdmin && fileInputRef.current?.click()}
+          disabled={isUploadingImage || !isAdmin}
+          className="size-28 rounded-full cursor-pointer overflow-hidden ring-4 ring-[#2a2a2a] hover:ring-[#00d9ff]/50 transition-all duration-300 focus:outline-none focus:ring-[#00d9ff] relative disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Change group image"
+        >
+          {isUploadingImage ? (
+            <div className="size-full bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f] flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#00d9ff] border-t-transparent"></div>
+            </div>
+          ) : imagePreview ? (
+            <Image
+              src={imagePreview}
+              alt={currentGroupData.name}
+              width={112}
+              height={112}
+              className="size-full object-cover"
+            />
+          ) : (
+            <div className="size-full bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f] flex items-center justify-center">
+              <Users className="w-14 h-14 text-[#666666]" />
+            </div>
+          )}
+          
+          {/* Hover overlay - Only show for admins */}
+          {isAdmin && !isUploadingImage && (
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full flex items-center justify-center backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-1">
+                <ImageIcon className="w-6 h-6 text-white" />
+                <span className="text-xs text-white font-medium">Change</span>
+              </div>
+            </div>
+          )}
+        </button>
+        
+        {/* Hidden file input */}
+        {isAdmin && (
+          <input 
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            accept="image/*"
+            className="hidden"
+          />
+        )}
+      </div>
+    </div>
 
-                      <div className="mt-4 w-full">
-                        {isEditing ? (
-                          <input
-                            ref={nameInputRef}
-                            type="text"
-                            value={editForm.name}
-                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                            className="w-full px-3 py-2 bg-[#2a2a2a] rounded-lg text-white text-center text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#00d9ff]"
-                            placeholder="Group name"
-                          />
-                        ) : (
-                          <h3 className="text-xl font-semibold text-white text-center">{currentGroupData.name}</h3>
-                        )}
-                        <p className="text-sm text-[#999] text-center mt-1">
-                          {currentGroupData.members?.length || 0} members
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+    <div className="mt-4 w-full">
+      {isEditing ? (
+        <input
+          ref={nameInputRef}
+          type="text"
+          value={editForm.name}
+          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+          className="w-full px-3 py-2 bg-[#2a2a2a] rounded-lg text-white text-center text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[#00d9ff]"
+          placeholder="Group name"
+        />
+      ) : (
+        <h3 className="text-xl font-semibold text-white text-center">{currentGroupData.name}</h3>
+      )}
+      <p className="text-sm text-[#999] text-center mt-1">
+        {currentGroupData.members?.length || 0} members
+      </p>
+    </div>
+  </div>
+</div>
 
                   {/* Tabs */}
                   <div className="sticky top-0 bg-[#111111] z-10 border-b border-[#2a2a2a]">

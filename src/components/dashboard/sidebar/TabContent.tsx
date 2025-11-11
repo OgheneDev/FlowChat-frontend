@@ -38,15 +38,6 @@ const EmptyState = ({
       <h3 className="text-lg font-medium text-white mb-1">{title}</h3>
       <p className="text-sm text-[#999999]">{description}</p>
       
-      {/* Conditional rendering for buttons based on activeTab */}
-      {activeTab === "chats" && (
-        <button
-          className="absolute bottom-[-50] cursor-pointer left-4 bg-[#00d9ff] text-black p-3 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors"
-          aria-label="Start a new chat"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      )}
       {activeTab === "groups" && (
         <button
           onClick={onCreateGroup}

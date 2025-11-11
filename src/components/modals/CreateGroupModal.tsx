@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from 'react';
-import { X, Camera, User, Loader2, Check, Users } from 'lucide-react';
+import { X, Camera, User, Loader2, Check, Users, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useGroupStore, useContactStore, useToastStore, useAuthStore } from '@/stores';
@@ -30,15 +30,15 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (e.g., 5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('Image size should be less than 5MB', 'error');
-      return;
-    }
-
     // Validate file type
     if (!file.type.startsWith('image/')) {
       showToast('Please select a valid image file', 'error');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image size should be less than 5MB', 'error');
       return;
     }
 
@@ -81,7 +81,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
         name: groupName.trim(),
         description: groupDescription,
         members: allMembers,
-        groupImage: selectedImage || undefined,
+        groupImage: selectedImage || undefined, // Send base64 image or undefined
       });
 
       // Automatically join the group room after creation
@@ -152,37 +152,45 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ isOpen, onClose }) 
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-              {/* Group Image */}
+              {/* Group Image with Hover Effect */}
               <div className="flex justify-center">
-                <div className="relative">
+                <div className="relative group">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-24 h-24 rounded-full overflow-hidden bg-[#2a2a2a] ring-4 ring-[#111111] hover:ring-[#00d9ff] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => !isSubmitting && !isCreatingGroup && fileInputRef.current?.click()}
                     disabled={isSubmitting || isCreatingGroup}
+                    className="size-28 rounded-full cursor-pointer overflow-hidden ring-4 ring-[#2a2a2a] hover:ring-[#00d9ff]/50 transition-all duration-300 focus:outline-none focus:ring-[#00d9ff] relative disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Choose group image"
                   >
                     {selectedImage ? (
                       <Image
                         src={selectedImage}
-                        alt="Group"
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
+                        alt="Group preview"
+                        width={112}
+                        height={112}
+                        className="size-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Camera className="w-10 h-10 text-[#666]" />
+                      <div className="size-full bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f] flex items-center justify-center">
+                        <Users className="w-14 h-14 text-[#666666]" />
                       </div>
                     )}
+                    
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full flex items-center justify-center backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-1">
+                        <Camera className="w-6 h-6 text-white" />
+                        <span className="text-xs text-white font-medium">Choose</span>
+                      </div>
+                    </div>
                   </button>
-                  <div className="absolute cursor-pointer inset-0 rounded-full bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Camera className="w-6 h-6 text-white" />
-                  </div>
+                  
+                  {/* Hidden file input */}
                   <input
                     type="file"
-                    accept="image/*"
                     ref={fileInputRef}
                     onChange={handleImageUpload}
+                    accept="image/*"
                     className="hidden"
                     disabled={isSubmitting || isCreatingGroup}
                   />
