@@ -2,7 +2,8 @@ import { ArrowLeft, Users, Pin } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import GroupInfoModal from './GroupInfoModal';
-import { useAuthStore, useGroupStore } from '@/stores';
+import UserInfoModal from './UserInfoModal';
+import { useAuthStore, useGroupStore, usePrivateChatStore, useContactStore } from '@/stores';
 
 interface ChatHeaderProps {
   selectedUser: any;
@@ -22,8 +23,10 @@ const ChatHeader = ({
   onBack,
 }: ChatHeaderProps) => {
   const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showUserInfo, setShowUserInfo] = useState(false);
   const { isUserOnline } = useAuthStore();
   const { groups } = useGroupStore();
+  const { contacts } = useContactStore();
   
   // Get the latest group data from the store for real-time updates
   const currentGroupData = type === 'group' 
@@ -42,6 +45,20 @@ const ChatHeader = ({
     }
   };
 
+  const handleUserInfoClick = () => {
+    if (type === "user" || type === "contact") {
+      setShowUserInfo(true);
+    }
+  };
+
+  // Determine if the info area should be clickable
+  const isInfoClickable = type === 'group' || type === 'user' || type === 'contact';
+  const getInfoClickHandler = () => {
+    if (type === 'group') return handleGroupInfoClick;
+    if (type === 'user' || type === 'contact') return handleUserInfoClick;
+    return undefined;
+  };
+
   return (
     <>
       <header className="relative bg-[#1e1e1e]/70 backdrop-blur-2xl border-b border-[#2a2a2a]/50 z-40">
@@ -55,11 +72,11 @@ const ChatHeader = ({
               <ArrowLeft className="w-5 h-5 text-[#999] group-hover:text-white" />
             </button>
 
-            {/* Group Info Area - Better structure for image quality */}
+            {/* Info Area - Clickable for both group and user/contact */}
             <div 
-              onClick={handleGroupInfoClick}
+              onClick={getInfoClickHandler()}
               className={`flex items-center gap-3 flex-1 min-w-0 ${
-                type === 'group' ? 'cursor-pointer hover:bg-[#2a2a2a] rounded-lg transition-colors p-1' : ''
+                isInfoClickable ? 'cursor-pointer hover:bg-[#2a2a2a] rounded-lg transition-colors p-1' : ''
               }`}
             >
               {/* Image without button wrapper */}
@@ -123,6 +140,14 @@ const ChatHeader = ({
           isOpen={showGroupInfo}
           onClose={() => setShowGroupInfo(false)}
           group={currentGroupData}
+        />
+      )}
+
+      {(type === 'user' || type === 'contact') && (
+        <UserInfoModal
+          isOpen={showUserInfo}
+          onClose={() => setShowUserInfo(false)}
+          user={currentGroupData}
         />
       )}
     </>

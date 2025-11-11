@@ -497,7 +497,7 @@ const handleMakeAdmin = async (memberId: string, memberName: string) => {
                     disabled={selectedContacts.length === 0 || isAddingMembers}
                     className="p-2 text-[#00d9ff] text-sm disabled:text-[#666] disabled:cursor-not-allowed"
                   >
-                    {isAddingMembers ? 'Adding' : 'Add'}
+                    {isAddingMembers ? <Loader2 className='animate-spin h-4 w-4' /> : 'Add'}
                   </button>
                 </>
               ) : (
