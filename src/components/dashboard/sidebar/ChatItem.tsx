@@ -2,7 +2,7 @@ import React from "react";
 import { User, Image, Star, Loader2 } from "lucide-react";
 import { formatTime } from "@/utils/utils";
 import { MessageStatus } from "./MessageStatus";
-import { useUIStore, useStarringStore, useAuthStore, useToastStore } from "@/stores";
+import { useUIStore, useStarringStore, useAuthStore, useToastStore, useGroupStore, usePrivateChatStore } from "@/stores";
 
 interface ChatItemProps {
   item: any;
@@ -81,6 +81,41 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
     return type === "user" || type === "group";
   };
 
+  const getUnreadCount = () => {
+    if (type === 'group') {
+      return useGroupStore.getState().getUnreadCount(item._id);
+    } else {
+      return usePrivateChatStore.getState().getUnreadCount(item._id);
+    }
+  };
+
+  const unreadCount = getUnreadCount();
+
+  const handleClick = () => {
+    setSelectedUser(item);
+    
+    // Clear unread count when opening chat
+    if (type === 'group') {
+      useGroupStore.getState().clearUnreadCount(item._id);
+      // Update the group in the list
+      useGroupStore.setState(state => ({
+        groups: state.groups.map(g => 
+          g._id === item._id ? { ...g, unreadCount: 0 } : g
+        )
+      }));
+    } else {
+      const partnerId = item._id;
+      usePrivateChatStore.getState().clearUnreadCount(partnerId);
+      // Update the chat in the list
+      usePrivateChatStore.setState(state => ({
+        chats: state.chats.map(c => {
+          const chatPartnerId = c.participants?.find(p => p !== useAuthStore.getState().authUser?._id) || c._id;
+          return chatPartnerId === partnerId ? { ...c, unreadCount: 0 } : c;
+        })
+      }));
+    }
+  };
+
   // Check if the last message was sent by the authenticated user
   const isLastMessageFromAuthUser = () => {
     if (!item.lastMessage || !authUser) return false;
@@ -97,7 +132,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
   return (
     <>
       <div
-        onClick={() => setSelectedUser(item)}
+        onClick={handleClick}
         className="flex items-center gap-3 p-3.5 hover:bg-[#1a1a1a] transition-colors duration-200 cursor-pointer group relative"
         role="button"
         tabIndex={0}
@@ -134,6 +169,13 @@ const ChatItem: React.FC<ChatItemProps> = ({ item, type }) => {
                 <MessageStatus status={item.lastMessage.status} />
               )}
             </>
+          )}
+
+          {/* Unread Count Badge */}
+          {unreadCount > 0 && (
+           <div className="bg-[#00d9ff] text-black text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
+             { unreadCount > 99 ? '99+' : unreadCount}
+            </div>
           )}
           
           <button

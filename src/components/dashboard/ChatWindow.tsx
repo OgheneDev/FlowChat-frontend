@@ -52,6 +52,30 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     setIsSelectionMode(false);
   }, []);
 
+  useEffect(() => {
+    if (selectedUser) {
+      if (type === 'group') {
+        useGroupStore.getState().clearUnreadCount(selectedUser._id);
+        // Also update the group in the list
+        useGroupStore.setState(state => ({
+          groups: state.groups.map(g => 
+            g._id === selectedUser._id ? { ...g, unreadCount: 0 } : g
+          )
+        }));
+      } else {
+        const partnerId = selectedUser.chatPartnerId || selectedUser._id;
+        usePrivateChatStore.getState().clearUnreadCount(partnerId);
+        // Also update the chat in the list
+        usePrivateChatStore.setState(state => ({
+          chats: state.chats.map(c => {
+            const chatPartnerId = c.participants?.find(p => p !== useAuthStore.getState().authUser?._id) || c._id;
+            return chatPartnerId === partnerId ? { ...c, unreadCount: 0 } : c;
+          })
+        }));
+      }
+    }
+  }, [selectedUser, type]);
+
   // Socket initialization and cleanup
   useEffect(() => {
     if (authUser && socket?.connected) {

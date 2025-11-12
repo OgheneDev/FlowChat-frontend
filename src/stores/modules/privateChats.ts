@@ -2,6 +2,7 @@ import { axiosInstance } from "@/api/axios";
 import { sendMessageData, Message } from "@/types/types";
 import { create } from "zustand";
 import { useAuthStore } from "./auth";
+import { useUIStore } from "./ui";
 
 interface DeleteMessageData {
   messageId: string;
@@ -25,6 +26,7 @@ interface ChatWithPinned {
   profilePic?: string;
   lastMessage?: Message;
   updatedAt?: string;
+  unreadCount?: number;
 }
 
 interface PrivateChatState {
@@ -35,6 +37,7 @@ interface PrivateChatState {
   isSendingMessage: boolean;
   isDeletingMessage: boolean;
   isEditingMessage: boolean;
+  unreadCounts: Record<string, number>;
 
   // Core chat methods
   getChatPartners: () => Promise<ChatWithPinned[]>;
@@ -45,6 +48,10 @@ interface PrivateChatState {
   addIncomingMessage: (msg: Message) => void;
   updateMessageStatus: (messageId: string, status: Message["status"]) => void;
   markMessagesAsSeen: (chatPartnerId: string) => Promise<void>;
+  getUnreadCount: (chatPartnerId: string) => number;
+  incrementUnreadCount: (chatPartnerId: string) => void;
+  clearUnreadCount: (chatPartnerId: string) => void;
+  calculateUnreadCount: (chatPartnerId: string) => number;
 
   // Socket methods
   initializeSocketListeners: () => void;
@@ -63,20 +70,40 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
   isSendingMessage: false,
   isDeletingMessage: false, 
   isEditingMessage: false,
+  unreadCounts: {},
 
   getChatPartners: async () => {
-    set({ isLoading: true });
-    try {
-      const { data } = await axiosInstance.get("/messages/chats");
-      console.log("Chat Partners:", data);
-      set({ chats: data });
-      return data;
-    } catch (error: any) {
-      throw new Error(error?.response?.data?.message || "Error fetching chats");
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+  set({ isLoading: true });
+  try {
+    const { data } = await axiosInstance.get("/messages/chats");
+    
+    const currentUserId = useAuthStore.getState().authUser?._id;
+    const chatsWithUnread = data.map((chat: ChatWithPinned) => {
+      const partnerId = chat.participants?.find(p => p !== currentUserId) || chat._id;
+      const unreadCount = get().calculateUnreadCount(partnerId);
+      
+      // Initialize the unreadCounts state
+      set(state => ({
+        unreadCounts: {
+          ...state.unreadCounts,
+          [partnerId]: unreadCount
+        }
+      }));
+      
+      return {
+        ...chat,
+        unreadCount
+      };
+    });
+    
+    set({ chats: chatsWithUnread });
+    return chatsWithUnread;
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.message || "Error fetching chats");
+  } finally {
+    set({ isLoading: false });
+  }
+},
 
   getPrivateMessages: async (id: string) => {
     set({ isMessagesLoading: true });
@@ -84,6 +111,15 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
       const { data } = await axiosInstance.get(`/messages/${id}`);
       console.log("Messages:", data);
       set({ privateMessages: data });
+      
+      const unreadCount = get().calculateUnreadCount(id);
+      set((state) => ({
+        unreadCounts: {
+          ...state.unreadCounts,
+          [id]: unreadCount
+        }
+      }));
+      
       return data;
     } catch (error: any) {
       throw new Error(error?.response?.data?.message || "Error fetching messages");
@@ -97,12 +133,10 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     try {
       const { data: newMessage } = await axiosInstance.post(`/messages/send/${id}`, data);
       
-      // Optimistically add to messages
       set((state) => ({
         privateMessages: [...state.privateMessages, newMessage],
       }));
 
-      // Also update recent chats optimistically
       get().updateRecentChat({
         partnerId: id,
         lastMessage: newMessage
@@ -120,20 +154,17 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     const { messageId, deleteType } = data;
     set({ isDeletingMessage: true });
 
-    // Different optimistic updates based on delete type
     const optimisticUpdater = (messages: Message[]) => {
       if (deleteType === "me") {
-        // Remove completely for "delete for me"
         return messages.filter(m => m._id !== messageId);
       } else {
-        // Show "You deleted this message" for "delete for everyone"
         return messages.map(m =>
           m._id === messageId 
             ? { 
                 ...m, 
                 isDeleted: true, 
                 text: "You deleted this message",
-                image: null // Remove image if it exists
+                image: null
               } 
             : m
         );
@@ -147,7 +178,6 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     try {
       await axiosInstance.delete("/messages/delete", { data });
     } catch (error: any) {
-      // Revert on error - you might want to implement proper revert logic
       set((state) => ({ privateMessages: state.privateMessages }));
       throw error;
     } finally {
@@ -159,10 +189,8 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     const { text } = data;
     set({ isEditingMessage: true });
 
-    // Store original message for rollback
     const originalMessage = get().privateMessages.find(m => m._id === messageId);
     
-    // Optimistic update
     set((state) => ({
       privateMessages: state.privateMessages.map((m) =>
         m._id === messageId ? { ...m, text, editedAt: new Date().toISOString() } : m
@@ -172,7 +200,6 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     try {
       const { data: updatedMessage } = await axiosInstance.put(`/messages/edit/${messageId}`, data);
       
-      // Update with server response
       set((state) => ({
         privateMessages: state.privateMessages.map((m) =>
           m._id === messageId ? updatedMessage : m
@@ -181,7 +208,6 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
 
       return updatedMessage;
     } catch (error: any) {
-      // Revert optimistic update on error
       if (originalMessage) {
         set((state) => ({ 
           privateMessages: state.privateMessages.map((m) =>
@@ -209,276 +235,358 @@ export const usePrivateChatStore = create<PrivateChatState>((set, get) => ({
     }));
   },
 
-  // In privateChats.ts - fix the markMessagesAsSeen method
-markMessagesAsSeen: async (chatPartnerId: string) => {
-  try {
+  calculateUnreadCount: (chatPartnerId: string) => {
     const { privateMessages } = get();
     const currentUserId = useAuthStore.getState().authUser?._id;
     
+    if (!currentUserId) return 0;
+    
     const unreadMessages = privateMessages.filter(msg => {
       const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
-      return senderId !== currentUserId && msg.status !== 'seen';
+      const receiverId = typeof msg.receiverId === "string" ? msg.receiverId : msg.receiverId?._id;
+      
+      return senderId === chatPartnerId && 
+             receiverId === currentUserId && 
+             msg.status !== 'seen';
     });
+    
+    return unreadMessages.length;
+  },
 
-    if (unreadMessages.length === 0) return;
+  getUnreadCount: (chatPartnerId: string) => {
+    return get().unreadCounts[chatPartnerId] || 0;
+  },
 
-    // Update optimistically
-    set(state => ({
-      privateMessages: state.privateMessages.map(msg => {
-        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
-        if (senderId !== currentUserId && msg.status !== 'seen') {
-          return { ...msg, status: 'seen' as const };
-        }
-        return msg;
-      })
+  incrementUnreadCount: (chatPartnerId: string) => {
+    set((state) => ({
+      unreadCounts: {
+        ...state.unreadCounts,
+        [chatPartnerId]: (state.unreadCounts[chatPartnerId] || 0) + 1
+      }
     }));
+  },
 
-    // Send to server via socket
-    const socket = useAuthStore.getState().socket;
-    if (socket) {
-      socket.emit("markMessagesAsSeen", { senderId: chatPartnerId });
+  clearUnreadCount: (chatPartnerId: string) => {
+    set((state) => ({
+      unreadCounts: {
+        ...state.unreadCounts,
+        [chatPartnerId]: 0
+      }
+    }));
+  },
+
+  markMessagesAsSeen: async (chatPartnerId: string) => {
+    try {
+      const { privateMessages } = get();
+      const currentUserId = useAuthStore.getState().authUser?._id;
+      
+      const unreadMessages = privateMessages.filter(msg => {
+        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+        return senderId !== currentUserId && msg.status !== 'seen';
+      });
+
+      if (unreadMessages.length === 0) return;
+
+      get().clearUnreadCount(chatPartnerId);
+
+      set(state => ({
+        privateMessages: state.privateMessages.map(msg => {
+          const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+          if (senderId !== currentUserId && msg.status !== 'seen') {
+            return { ...msg, status: 'seen' as const };
+          }
+          return msg;
+        }),
+        chats: state.chats.map(chat => {
+          const partnerId = chat.participants?.find(p => p !== currentUserId) || chat._id;
+          if (partnerId === chatPartnerId) {
+            return { ...chat, unreadCount: 0 };
+          }
+          return chat;
+        })
+      }));
+
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("markMessagesAsSeen", { senderId: chatPartnerId });
+      }
+      
+    } catch (error) {
+      console.error('Error marking messages as seen:', error);
     }
+  },
+
+  initializeSocketListeners: () => {
+    const socket = useAuthStore.getState().socket;
+    const currentUserId = useAuthStore.getState().authUser?._id;
     
-  } catch (error) {
-    console.error('Error marking messages as seen:', error);
-  }
-},
+    if (!socket) {
+      console.warn("Socket not available - user might not be authenticated");
+      return;
+    }
 
-  
+    console.log("Initializing socket listeners for private chat...");
 
-  // Add this to your initializeSocketListeners in usePrivateChatStore
-
-initializeSocketListeners: () => {
-  const socket = useAuthStore.getState().socket;
-  const currentUserId = useAuthStore.getState().authUser?._id;
-  
-  if (!socket) {
-    console.warn("Socket not available - user might not be authenticated");
-    return;
-  }
-
-  console.log("🔌 Initializing socket listeners for private chat...");
-
-  // Listen for new incoming messages (from other users)
-  socket.on("newMessage", (message: Message) => {
-    console.log("📨 newMessage received:", message);
-    const { privateMessages } = get();
-    
+   socket.on("newMessage", (message: Message) => {
     const senderId = typeof message.senderId === "string" 
       ? message.senderId 
       : message.senderId?._id;
     
-    if (senderId === currentUserId) {
-      console.log("⏭️  Skipping own message from socket");
-      return;
-    }
-    
-    const messageExists = privateMessages.some(m => m._id === message._id);
+    if (senderId === currentUserId) return;
+
+    const messageExists = get().privateMessages.some(m => m._id === message._id);
     if (!messageExists) {
-      console.log("✅ Adding new message to state");
       get().addIncomingMessage(message);
       
-      const partnerId = typeof message.senderId === "string" 
-        ? message.senderId 
-        : message.senderId?._id;
-      const receiverId = typeof message.receiverId === "string"
-        ? message.receiverId
-        : message.receiverId?._id;
+      const partnerId = senderId;
+      const { selectedUser } = useUIStore.getState();
+      const isInChatWindow = selectedUser === partnerId;
       
-      const otherUserId = partnerId === currentUserId ? receiverId : partnerId;
+      if (!isInChatWindow) {
+        // Increment unread count for this chat
+        get().incrementUnreadCount(partnerId);
+        
+        // Also update the chat in the list with unread count
+        set(state => ({
+          chats: state.chats.map(chat => {
+            const chatPartnerId = chat.participants?.find(p => p !== currentUserId) || chat._id;
+            if (chatPartnerId === partnerId) {
+              return {
+                ...chat,
+                unreadCount: (chat.unreadCount || 0) + 1
+              };
+            }
+            return chat;
+          })
+        }));
+      }
       
       get().updateRecentChat({
-        partnerId: otherUserId!,
+        partnerId: partnerId,
         lastMessage: message
       });
-    } else {
-      console.log("⚠️  Message already exists, skipping");
     }
   });
 
-  // Listen for status updates for YOUR messages
-  socket.on("messageStatusUpdate", (data: {
-    messageId: string;
-    status: Message["status"];
-  }) => {
-    console.log("🔄 messageStatusUpdate received:", data);
-    
-    set((state) => {
-      const tempMessageIndex = state.privateMessages.findIndex(m => m._id.startsWith('temp-'));
-      
-      if (tempMessageIndex !== -1) {
-        const updatedMessages = [...state.privateMessages];
-        updatedMessages[tempMessageIndex] = {
-          ...updatedMessages[tempMessageIndex],
-          _id: data.messageId,
-          status: data.status
-        };
-        
-        console.log("✅ Updated temp message at index", tempMessageIndex, "→", data.messageId, data.status);
-        return { privateMessages: updatedMessages };
-      } else {
-        const updatedMessages = state.privateMessages.map(m =>
-          m._id === data.messageId ? { ...m, status: data.status } : m
-        );
-        
-        console.log("✅ Updated existing message status:", data.messageId, data.status);
-        return { privateMessages: updatedMessages };
-      }
-    });
-  });
-
-  // ⭐ NEW: Listen for bulk status updates when user comes online
-  socket.on("bulkMessageStatusUpdate", (data: {
-    messageIds: string[];
-    status: Message["status"];
-  }) => {
-    console.log("📦 bulkMessageStatusUpdate received:", data);
-    
-    // Create the Set BEFORE using it in set()
-    const messageIdSet = new Set(data.messageIds);
-    
-    set((state) => {
-      // Update messages
-      const updatedMessages = state.privateMessages.map(m =>
-        messageIdSet.has(m._id) ? { ...m, status: data.status } : m
-      );
-      
-      // Update recent chats with new status
-      const updatedChats = state.chats.map(chat => {
-        if (chat.lastMessage && messageIdSet.has(chat.lastMessage._id)) {
-          return {
-            ...chat,
-            lastMessage: {
-              ...chat.lastMessage,
-              status: data.status
-            }
-          };
+  socket.on("unreadCountUpdated", (data: { chatId: string; unreadCount: number }) => {
+    set(state => ({
+      unreadCounts: {
+        ...state.unreadCounts,
+        [data.chatId]: data.unreadCount
+      },
+      chats: state.chats.map(chat => {
+        const chatPartnerId = chat.participants?.find(p => p !== currentUserId) || chat._id;
+        if (chatPartnerId === data.chatId) {
+          return { ...chat, unreadCount: data.unreadCount };
         }
         return chat;
-      });
-      
-      console.log(`✅ Updated ${data.messageIds.length} messages to ${data.status}`);
-      return { 
-        privateMessages: updatedMessages,
-        chats: updatedChats
-      };
-    });
-  });
-
-  // Listen for recent chat updates
-  socket.on("recentChatUpdated", (data: {
-    partnerId: string;
-    lastMessage: Message;
-  }) => {
-    console.log("📬 recentChatUpdated received:", data);
-    get().updateRecentChat(data);
-  });
-
-  // Listen for message edits from other users
-  socket.on("messageEdited", (updatedMessage: Message) => {
-    console.log("✏️  messageEdited received:", updatedMessage);
-    
-    const senderId = typeof updatedMessage.senderId === "string" 
-      ? updatedMessage.senderId 
-      : updatedMessage.senderId?._id;
-    
-    if (senderId === currentUserId) {
-      console.log("⏭️  Skipping own edit from socket");
-      return;
-    }
-    
-    set(state => ({
-      privateMessages: state.privateMessages.map(m =>
-        m._id === updatedMessage._id ? updatedMessage : m
-      )
-    }));
-  });
-
-  // Listen for message deletes from other users
-  socket.on("messageDeleted", (data: { messageId: string }) => {
-    console.log("🗑️  messageDeleted received:", data);
-    set(state => ({
-      privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
-    }));
-  });
-
-  socket.on("messagesSeen", (data: { seenBy: string; senderId: string }) => {
-  console.log("👀 Messages seen by user:", data.seenBy);
-  
-  const currentUserId = useAuthStore.getState().authUser?._id;
-  
-  // If the current user's messages were seen by someone else
-  if (data.senderId === currentUserId) {
-    set((state) => ({
-      privateMessages: state.privateMessages.map(msg => {
-        // Only update messages sent by current user that are not already seen
-        const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
-        if (senderId === currentUserId && msg.status !== 'seen') {
-          return { ...msg, status: 'seen' as const };
-        }
-        return msg;
       })
     }));
-  }
-});
-
-  // Listen for socket errors
-  socket.on("error", (error: { message: string }) => {
-    console.error("❌ Socket error:", error);
   });
-  
-  console.log("✅ Socket listeners initialized for private chat");
-},
 
-cleanupSocketListeners: () => {
-  const socket = useAuthStore.getState().socket;
-  if (!socket) return;
+    socket.on("messageStatusUpdate", (data: {
+      messageId: string;
+      status: Message["status"];
+    }) => {
+      console.log("messageStatusUpdate received:", data);
+      
+      set((state) => {
+        const tempMessageIndex = state.privateMessages.findIndex(m => m._id.startsWith('temp-'));
+        
+        if (tempMessageIndex !== -1) {
+          const updatedMessages = [...state.privateMessages];
+          updatedMessages[tempMessageIndex] = {
+            ...updatedMessages[tempMessageIndex],
+            _id: data.messageId,
+            status: data.status
+          };
+          
+          return { privateMessages: updatedMessages };
+        } else {
+          const updatedMessages = state.privateMessages.map(m =>
+            m._id === data.messageId ? { ...m, status: data.status } : m
+          );
+          
+          return { privateMessages: updatedMessages };
+        }
+      });
+    });
 
-  console.log("Cleaning up socket listeners...");
+    socket.on("bulkMessageStatusUpdate", (data: {
+      messageIds: string[];
+      status: Message["status"];
+    }) => {
+      console.log("bulkMessageStatusUpdate received:", data);
+      
+      const messageIdSet = new Set(data.messageIds);
+      
+      set((state) => {
+        const updatedMessages = state.privateMessages.map(m =>
+          messageIdSet.has(m._id) ? { ...m, status: data.status } : m
+        );
+        
+        const updatedChats = state.chats.map(chat => {
+          if (chat.lastMessage && messageIdSet.has(chat.lastMessage._id)) {
+            return {
+              ...chat,
+              lastMessage: {
+                ...chat.lastMessage,
+                status: data.status
+              }
+            };
+          }
+          return chat;
+        });
+        
+        return { 
+          privateMessages: updatedMessages,
+          chats: updatedChats
+        };
+      });
+    });
 
-  socket.off("newMessage");
-  socket.off("messageStatusUpdate");
-  socket.off("bulkMessageStatusUpdate");
-  socket.off("recentChatUpdated");
-  socket.off("messageEdited");
-  socket.off("messageDeleted");
-  socket.off("error");
-},
+    socket.on("recentChatUpdated", (data: {
+      partnerId: string;
+      lastMessage: Message;
+    }) => {
+      console.log("recentChatUpdated received:", data);
+      get().updateRecentChat(data);
+    });
+
+    socket.on("messageEdited", (updatedMessage: Message) => {
+      console.log("messageEdited received:", updatedMessage);
+      
+      const senderId = typeof updatedMessage.senderId === "string" 
+        ? updatedMessage.senderId 
+        : updatedMessage.senderId?._id;
+      
+      if (senderId === currentUserId) {
+        console.log("Skipping own edit from socket");
+        return;
+      }
+      
+      set(state => ({
+        privateMessages: state.privateMessages.map(m =>
+          m._id === updatedMessage._id ? updatedMessage : m
+        )
+      }));
+    });
+
+    socket.on("messageDeleted", (data: { messageId: string }) => {
+      console.log("messageDeleted received:", data);
+      set(state => ({
+        privateMessages: state.privateMessages.filter(m => m._id !== data.messageId)
+      }));
+    });
+
+    socket.on("messagesSeen", (data: { seenBy: string; senderId: string }) => {
+      console.log("Messages seen by user:", data.seenBy);
+      
+      const currentUserId = useAuthStore.getState().authUser?._id;
+      
+      if (data.senderId === currentUserId) {
+        set((state) => {
+          const updatedMessages = state.privateMessages.map(msg => {
+            const senderId = typeof msg.senderId === "string" ? msg.senderId : msg.senderId?._id;
+            if (senderId === currentUserId && msg.status !== 'seen') {
+              return { ...msg, status: 'seen' as const };
+            }
+            return msg;
+          });
+
+          const updatedChats = state.chats.map(chat => {
+            if (chat.lastMessage) {
+              const lastMsgSenderId = typeof chat.lastMessage.senderId === "string" 
+                ? chat.lastMessage.senderId 
+                : chat.lastMessage.senderId?._id;
+              
+              const isPartnerInChat = chat.participants?.includes(data.seenBy) || chat._id === data.seenBy;
+              
+              if (lastMsgSenderId === currentUserId && isPartnerInChat && chat.lastMessage.status !== 'seen') {
+                return {
+                  ...chat,
+                  lastMessage: {
+                    ...chat.lastMessage,
+                    status: 'seen' as const
+                  }
+                };
+              }
+            }
+            return chat;
+          });
+
+          return { 
+            privateMessages: updatedMessages,
+            chats: updatedChats
+          };
+        });
+      }
+    });
+
+    socket.on("error", (error: { message: string }) => {
+      console.error("Socket error:", error);
+    });
+    
+    console.log("Socket listeners initialized for private chat");
+  },
+
+  cleanupSocketListeners: () => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return;
+
+    console.log("Cleaning up socket listeners...");
+    socket.off("newMessage");
+    socket.off("messageStatusUpdate");
+    socket.off("bulkMessageStatusUpdate");
+    socket.off("recentChatUpdated");
+    socket.off("messageEdited");
+    socket.off("messageDeleted");
+    socket.off("error");
+  },
 
   updateRecentChat: (data: { partnerId: string; lastMessage: Message }) => {
-  set(state => {
-    const existingChatIndex = state.chats.findIndex(chat =>
-      chat.participants && chat.participants.includes(data.partnerId) ||
-      chat._id === data.partnerId
-    );
+    set(state => {
+      const currentUserId = useAuthStore.getState().authUser?._id;
+      const existingChatIndex = state.chats.findIndex(chat =>
+        chat.participants && chat.participants.includes(data.partnerId) ||
+        chat._id === data.partnerId
+      );
 
-    if (existingChatIndex >= 0) {
-      // Update existing chat with new last message
-      const updatedChats = [...state.chats];
-      const existingChat = updatedChats[existingChatIndex];
-      
-      const updatedChat = {
-        ...existingChat,
-        lastMessage: data.lastMessage,
-        updatedAt: new Date().toISOString()
-      };
-      updatedChats[existingChatIndex] = updatedChat;
+      // FIXED: Use selectedUser as string
+      const { selectedUser } = useUIStore.getState();
+      const isInChatWindow = selectedUser === data.partnerId;
+      const messageSenderId = typeof data.lastMessage.senderId === "string" 
+        ? data.lastMessage.senderId 
+        : data.lastMessage.senderId?._id;
+      const isFromOther = messageSenderId !== currentUserId;
 
-      // Move to top (most recent first)
-      const [movedChat] = updatedChats.splice(existingChatIndex, 1);
-      updatedChats.unshift(movedChat);
+      if (existingChatIndex >= 0) {
+        const updatedChats = [...state.chats];
+        const existingChat = updatedChats[existingChatIndex];
+        
+        const updatedChat = {
+          ...existingChat,
+          lastMessage: data.lastMessage,
+          updatedAt: new Date().toISOString(),
+          unreadCount: isFromOther && !isInChatWindow 
+            ? (existingChat.unreadCount || 0) + 1 
+            : existingChat.unreadCount
+        };
+        updatedChats[existingChatIndex] = updatedChat;
 
-      return { chats: updatedChats };
-    } else {
-      // Create new temporary chat entry
-      const newChat: ChatWithPinned = {
-        _id: `temp-${Date.now()}`,
-        participants: [data.partnerId],
-        pinnedMessages: [],
-        // Note: Full user details will be fetched when chat list is refreshed
-      };
-      return { chats: [newChat, ...state.chats] };
-    }
-  });
-},
+        const [movedChat] = updatedChats.splice(existingChatIndex, 1);
+        updatedChats.unshift(movedChat);
+
+        return { chats: updatedChats };
+      } else {
+        const newChat: ChatWithPinned = {
+          _id: `temp-${Date.now()}`,
+          participants: [data.partnerId],
+          pinnedMessages: [],
+          unreadCount: 1
+        };
+        return { chats: [newChat, ...state.chats] };
+      }
+    });
+  },
 }));
