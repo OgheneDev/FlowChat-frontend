@@ -21,7 +21,7 @@ interface ChatWindowProps {
 const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   const { 
     privateMessages, 
-    isMessagesLoading, 
+    isMessagesLoading: isPrivateMessagesLoading, 
     getPrivateMessages, 
     initializeSocketListeners, 
     cleanupSocketListeners,
@@ -29,6 +29,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   } = usePrivateChatStore();
   const { 
     groupMessages, 
+    isMessagesLoading: isGroupMessagesLoading, 
     getGroupMessages, 
     initializeGroupSocketListeners, 
     cleanupGroupSocketListeners, 
@@ -45,17 +46,21 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
   const messageListRef = useRef<any>(null);
 
   const messages = type === 'group' ? groupMessages : privateMessages;
+  
+  // FIX: Proper loading state for both chat types
+  const isLoading = type === 'group' ? isGroupMessagesLoading : isPrivateMessagesLoading;
 
   // Define clearSelection before using it in useChatActions
   const clearSelection = useCallback(() => {
-  setSelectedMessages([]);
-  setIsSelectionMode(false);
-  // Reset selection in MessageList
-  if (messageListRef.current) {
-    messageListRef.current.clearSelection?.();
-  }
-}, []);
+    setSelectedMessages([]);
+    setIsSelectionMode(false);
+    // Reset selection in MessageList
+    if (messageListRef.current) {
+      messageListRef.current.clearSelection?.();
+    }
+  }, []);
 
+  // Clear unread counts when selecting a chat
   useEffect(() => {
     if (selectedUser) {
       if (type === 'group') {
@@ -218,9 +223,10 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
         onClose={() => setShowPinnedMessages(false)}
       />
 
+      {/* FIX: Pass correct isLoading prop */}
       <MessageList
         ref={messageListRef}
-        isLoading={isMessagesLoading}
+        isLoading={isLoading}
         type={type}
         selectedUser={selectedUser}
         onSelectionModeChange={setIsSelectionMode}

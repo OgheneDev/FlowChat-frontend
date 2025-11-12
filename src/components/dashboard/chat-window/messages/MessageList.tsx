@@ -23,11 +23,25 @@ export interface MessageListHandle {
 
 const MessageList = forwardRef<MessageListHandle, MessageListProps>(
   ({ isLoading, type, selectedUser, onSelectionModeChange, onSelectedMessagesChange }, ref) => {
-    const { privateMessages, isSendingMessage: isPrivateSending } = usePrivateChatStore();
-    const { groupMessages, isSendingMessage: isGroupSending } = useGroupStore();
+    const { 
+      privateMessages, 
+      isSendingMessage: isPrivateSending, 
+      isMessagesLoading: isPrivateLoading 
+    } = usePrivateChatStore();
+    const { 
+      groupMessages, 
+      isSendingMessage: isGroupSending, 
+      isMessagesLoading: isGroupLoading 
+    } = useGroupStore();
+    
     const { authUser } = useAuthStore() as { authUser: { _id: string } | null };
+    
+    // FIX: Use proper loading state from props and fallback to store state
     const messages = type === "group" ? groupMessages : privateMessages;
     const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
+    
+    // Use isLoading from props first, then fallback to store state
+    const displayLoading = isLoading || (type === "group" ? isGroupLoading : isPrivateLoading);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -38,10 +52,10 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     useEffect(() => {
-  // This will automatically handle incoming real-time messages
-  // via the socket listeners in the parent ChatWindow
-  console.log('MessageList updated with:', messages.length, 'messages');
-}, [messages]);
+      // This will automatically handle incoming real-time messages
+      // via the socket listeners in the parent ChatWindow
+      console.log('MessageList updated with:', messages.length, 'messages');
+    }, [messages]);
 
     // Use useCallback to prevent unnecessary re-renders
     const toggleMessageSelection = useCallback((messageId: string) => {
@@ -90,27 +104,27 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }));
 
     const highlightMessage = (messageId: string) => {
-  if (highlightedMessageRef.current) {
-    const prevElement = messageRefs.current.get(highlightedMessageRef.current);
-    if (prevElement) {
-      prevElement.classList.remove('message-highlight');
-    }
-  }
-
-  const element = messageRefs.current.get(messageId);
-  if (element) {
-    element.classList.add('message-highlight');
-    highlightedMessageRef.current = messageId;
-
-    // Extended highlight duration for search results
-    setTimeout(() => {
-      if (highlightedMessageRef.current === messageId) {
-        element.classList.remove('message-highlight');
-        highlightedMessageRef.current = null;
+      if (highlightedMessageRef.current) {
+        const prevElement = messageRefs.current.get(highlightedMessageRef.current);
+        if (prevElement) {
+          prevElement.classList.remove('message-highlight');
+        }
       }
-    }, 4000); // 4 seconds for search results
-  }
-};
+
+      const element = messageRefs.current.get(messageId);
+      if (element) {
+        element.classList.add('message-highlight');
+        highlightedMessageRef.current = messageId;
+
+        // Extended highlight duration for search results
+        setTimeout(() => {
+          if (highlightedMessageRef.current === messageId) {
+            element.classList.remove('message-highlight');
+            highlightedMessageRef.current = null;
+          }
+        }, 4000); // 4 seconds for search results
+      }
+    };
 
     const setMessageRef = (messageId: string, element: HTMLDivElement | null) => {
       if (element) {
@@ -120,6 +134,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       }
     };
 
+    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
       const timer = setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -147,47 +162,48 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }, [selectedMessages, onSelectedMessagesChange]);
 
     const enhancedStyles = `
-  .message-highlight {
-    animation: highlight-pulse 4s ease-in-out;
-    border-left: 4px solid #00d9ff;
-    background: linear-gradient(90deg, rgba(0, 217, 255, 0.15) 0%, transparent 100%);
-    box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
-    transform: scale(1.02);
-  }
-  
-  @keyframes highlight-pulse {
-    0% { 
-      background: rgba(0, 217, 255, 0.25);
-      transform: scale(1.02);
-    }
-    20% { 
-      background: rgba(0, 217, 255, 0.2);
-    }
-    50% { 
-      background: rgba(0, 217, 255, 0.15);
-    }
-    100% { 
-      background: rgba(0, 217, 255, 0.05);
-      transform: scale(1);
-    }
-  }
-`;
+      .message-highlight {
+        animation: highlight-pulse 4s ease-in-out;
+        border-left: 4px solid #00d9ff;
+        background: linear-gradient(90deg, rgba(0, 217, 255, 0.15) 0%, transparent 100%);
+        box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
+        transform: scale(1.02);
+      }
+      
+      @keyframes highlight-pulse {
+        0% { 
+          background: rgba(0, 217, 255, 0.25);
+          transform: scale(1.02);
+        }
+        20% { 
+          background: rgba(0, 217, 255, 0.2);
+        }
+        50% { 
+          background: rgba(0, 217, 255, 0.15);
+        }
+        100% { 
+          background: rgba(0, 217, 255, 0.05);
+          transform: scale(1);
+        }
+      }
+    `;
 
-// Add the styles to the document head
-useEffect(() => {
-  const styleSheet = document.createElement('style');
-  styleSheet.innerText = enhancedStyles;
-  document.head.appendChild(styleSheet);
-  
-  return () => {
-    document.head.removeChild(styleSheet); 
-  };
-}, []);
+    // Add the styles to the document head
+    useEffect(() => {
+      const styleSheet = document.createElement('style');
+      styleSheet.innerText = enhancedStyles;
+      document.head.appendChild(styleSheet);
+      
+      return () => {
+        document.head.removeChild(styleSheet); 
+      };
+    }, []);
 
-    if (isLoading) {
+    // FIX: Use displayLoading instead of isLoading
+    if (displayLoading) {
       return (
         <div className="flex-1 overflow-y-auto py-4 px-2">
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 3 }).map((_, i) => (
             <MessageSkeleton key={i} />
           ))}
         </div>
@@ -219,45 +235,45 @@ useEffect(() => {
 
     return (
       <div className={`flex-1 overflow-y-auto p-3 space-y-4 scroll-smooth scrollbar-thin scrollbar-thumb-[#2a2a2a] scrollbar-track-transparent ${isSelectionMode ? 'selection-mode' : ''}`}>
-{messages.map((message: any, index: number) => {
-  // Check if this is a group event message using the event types
-  const isGroupEvent = [
-    'member_joined', 
-    'member_left', 
-    'member_removed', 
-    'admin_promoted', 
-    'group_created',
-    'group_updated'
-  ].includes(message.type);
+        {messages.map((message: any, index: number) => {
+          // Check if this is a group event message using the event types
+          const isGroupEvent = [
+            'member_joined', 
+            'member_left', 
+            'member_removed', 
+            'admin_promoted', 
+            'group_created',
+            'group_updated'
+          ].includes(message.type);
 
-  if (isGroupEvent) {
-    return (
-      <GroupEventMessage 
-        key={message._id || `event-${index}`} 
-        event={message} 
-      />
-    );
-  }
+          if (isGroupEvent) {
+            return (
+              <GroupEventMessage 
+                key={message._id || `event-${index}`} 
+                event={message} 
+              />
+            );
+          }
 
-  // Regular message
-  return (
-    <MessageItem
-      key={message._id}
-      message={message}
-      index={index}
-      type={type}
-      authUser={authUser}
-      messages={messages}
-      isSendingMessage={isSendingMessage}
-      selectedUser={selectedUser}
-      isSelectionMode={isSelectionMode}
-      isSelected={selectedMessages.has(message._id)}
-      onToggleSelect={toggleMessageSelection}
-      onSelectMode={handleSelectMode}
-      ref={(el) => setMessageRef(message._id, el)}
-    />
-  );
-})}
+          // Regular message
+          return (
+            <MessageItem
+              key={message._id}
+              message={message}
+              index={index}
+              type={type}
+              authUser={authUser}
+              messages={messages}
+              isSendingMessage={isSendingMessage}
+              selectedUser={selectedUser}
+              isSelectionMode={isSelectionMode}
+              isSelected={selectedMessages.has(message._id)}
+              onToggleSelect={toggleMessageSelection}
+              onSelectMode={handleSelectMode}
+              ref={(el) => setMessageRef(message._id, el)}
+            />
+          );
+        })}
         <div ref={messagesEndRef} className="h-1" />
       </div>
     );
