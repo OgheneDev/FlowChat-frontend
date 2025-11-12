@@ -48,9 +48,13 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
 
   // Define clearSelection before using it in useChatActions
   const clearSelection = useCallback(() => {
-    setSelectedMessages([]);
-    setIsSelectionMode(false);
-  }, []);
+  setSelectedMessages([]);
+  setIsSelectionMode(false);
+  // Reset selection in MessageList
+  if (messageListRef.current) {
+    messageListRef.current.clearSelection?.();
+  }
+}, []);
 
   useEffect(() => {
     if (selectedUser) {
