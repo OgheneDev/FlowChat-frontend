@@ -322,7 +322,6 @@ const ChatSidebar = () => {
 
         <div className="flex gap-1.5">
           {[
-            { Icon: Bell, label: "Notifications" },
             { Icon: Settings, label: "Settings", onClick: handleOpenSettingsModal },
             { Icon: LogOut, label: "Logout", onClick: handleLogout },
             { Icon: SquarePen, label: "Create Group", onClick: handleOpenCreateGroupModal}

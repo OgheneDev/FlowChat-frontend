@@ -36,7 +36,7 @@ const MessageSkeleton = () => (
       
       {/* Avatar skeleton */}
       <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex-shrink-0" />
-    </div>
+    </div> 
 
     {/* Single incoming message skeleton */}
     <div className="flex gap-3 items-start">

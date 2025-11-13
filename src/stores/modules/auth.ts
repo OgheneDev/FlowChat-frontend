@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { axiosInstance } from "@/api/axios";
 import { io, Socket } from "socket.io-client";
+import { useNotificationStore } from "./notifications"; // Import the notification store
 
 const BASE_URL = "https://flowchat-81ni.onrender.com";
 
@@ -24,7 +25,6 @@ interface DeletePasswordData {
   password: string;
 }
 
-// Add new interfaces for password management
 interface ChangePasswordData {
   currentPassword: string;
   newPassword: string;
@@ -55,7 +55,6 @@ interface AuthStore {
   isLoggingIn: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
-  // Add new loading states
   isChangingPassword: boolean;
   isSendingResetEmail: boolean;
   isResettingPassword: boolean;
@@ -70,14 +69,13 @@ interface AuthStore {
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileData) => Promise<void>;
   deleteAccount: (data: DeletePasswordData) => Promise<void>;
-  
-  // Add new password management methods
   changePassword: (data: ChangePasswordData) => Promise<void>;
   forgotPassword: (data: ForgotPasswordData) => Promise<void>;
   resetPassword: (data: ResetPasswordData) => Promise<void>;
   
   connectSocket: () => void;
   disconnectSocket: () => void;
+  initializePushNotifications: () => Promise<void>; // New method
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -87,12 +85,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isLoggingIn: false,
   isUpdating: false,
   isDeleting: false,
-  // Initialize new loading states
   isChangingPassword: false,
   isSendingResetEmail: false,
   isResettingPassword: false,
   socket: null,
   onlineUsers: [],
+
+  // Add this new method to initialize push notifications
+  initializePushNotifications: async () => {
+    try {
+      const notificationStore = useNotificationStore.getState();
+      await notificationStore.initializePushNotifications();
+      console.log('Push notifications initialized');
+    } catch (error) {
+      console.error('Failed to initialize push notifications:', error);
+    }
+  },
 
   checkAuth: async () => {
     try {
@@ -100,6 +108,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.log("Auth check:", response);
       set({ authUser: response.data });
       get().connectSocket();
+      
+      // Initialize push notifications after auth check
+      if (response.data) {
+        get().initializePushNotifications();
+      }
     } catch (error) {
       console.log("Error in authentication check:", error);
       set({ authUser: null });
@@ -114,6 +127,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const response = await axiosInstance.post("/auth/signup", data);
       set({ authUser: response.data });
       get().connectSocket();
+      
+      // Initialize push notifications after signup
+      get().initializePushNotifications();
+      
       return response.data;
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error creating account";
@@ -129,6 +146,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const response = await axiosInstance.post("/auth/login", data);
       set({ authUser: response.data });
       get().connectSocket();
+      
+      // Initialize push notifications after login
+      get().initializePushNotifications();
+      
       return response.data;
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error logging in";
@@ -140,6 +161,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     try {
+      // Remove device tokens before logout
+      const notificationStore = useNotificationStore.getState();
+      if (notificationStore.fcmToken) {
+        await notificationStore.removeDeviceToken(notificationStore.fcmToken);
+      }
+      
       await axiosInstance.post("/auth/logout");
       set({ authUser: null });
       get().disconnectSocket();
@@ -163,6 +190,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   deleteAccount: async (data) => {
     set({ isDeleting: true });
     try {
+      // Remove device tokens before account deletion
+      const notificationStore = useNotificationStore.getState();
+      if (notificationStore.fcmToken) {
+        await notificationStore.removeDeviceToken(notificationStore.fcmToken);
+      }
+      
       const response = await axiosInstance.delete("/auth/delete", { data });
       set({ authUser: null });
       get().disconnectSocket();
@@ -173,12 +206,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  // New password management methods
   changePassword: async (data: ChangePasswordData) => {
     set({ isChangingPassword: true });
     try {
       const response = await axiosInstance.put("/auth/change-password", data);
-      // You might want to show a success message or handle post-change logic
       console.log("Password changed successfully:", response.data);
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error changing password";
@@ -192,13 +223,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ isSendingResetEmail: true });
     try {
       const response = await axiosInstance.post("/auth/forgot-password", data);
-      // Success message is handled by the backend, but you might want to show a confirmation
       console.log("Reset email sent:", response.data);
     } catch (error: any) {
-      // For security, we don't reveal if the email exists or not
-      // But we still need to handle potential network errors
       const errorMessage = error?.response?.data?.message || "If the email exists, a reset link has been sent";
-      // Don't throw an error here to prevent email enumeration
       console.log("Forgot password request completed");
     } finally {
       set({ isSendingResetEmail: false });
@@ -212,8 +239,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         password: data.password
       });
       console.log("Password reset successfully:", response.data);
-      // You might want to automatically log the user in after successful reset
-      // or redirect them to the login page
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error resetting password";
       throw new Error(errorMessage);
@@ -226,16 +251,36 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const { authUser } = get();
     if (!authUser || get().socket?.connected) return;
 
+    console.log('🔌 [FRONTEND] Connecting socket for user:', authUser.fullName);
+
     const socket = io(BASE_URL, {
       withCredentials: true,
     });
 
     socket.connect();
 
+    // Add connection event listeners
+  socket.on('connect', () => {
+    console.log('✅ [FRONTEND] Socket connected successfully');
+  });
+
     set({ socket });
 
     socket.on("getOnlineUsers", (userIds: string[]) => {
       set({ onlineUsers: userIds });
+    });
+
+    // Add socket listener for push notification registration
+    socket.on("deviceTokenRegistered", (data: { success: boolean }) => {
+      if (data.success) {
+        console.log("Device token registered successfully via socket");
+      }
+    });
+
+    socket.on("deviceTokenRemoved", (data: { success: boolean }) => {
+      if (data.success) {
+        console.log("Device token removed successfully via socket");
+      }
     });
   },
 
@@ -246,11 +291,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   isUserOnline: (userId: string) => {
     const { authUser, onlineUsers } = get();
-    // For current user, check socket connection
     if (authUser?._id === userId) {
       return get().socket?.connected || false;
     }
-    // For other users, check onlineUsers array
     return onlineUsers.includes(userId);
   },
 

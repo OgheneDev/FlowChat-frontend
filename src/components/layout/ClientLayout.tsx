@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useAuthStore } from "@/stores";
+import { useNotificationStore } from "@/stores/modules/notifications";
 import { usePathname, useRouter } from "next/navigation";
 import Loader from "../ui/Loader";
 
@@ -21,6 +22,8 @@ export default function ClientLayout({
 
   const { authUser, isCheckingAuth, checkAuth } =
     useAuthStore() as AuthStoreShape;
+    
+  const { initializePushNotifications } = useNotificationStore(); // ADD THIS
 
   const authRoutes = [
     "/login",
@@ -33,6 +36,13 @@ export default function ClientLayout({
     checkAuth();
   }, [checkAuth]);
 
+  // ADD THIS NEW useEffect - Initialize push notifications when user is authenticated
+  useEffect(() => {
+    if (authUser && !isCheckingAuth) {
+      initializePushNotifications();
+    }
+  }, [authUser, isCheckingAuth, initializePushNotifications]);
+
   useEffect(() => {
     if (!isCheckingAuth) {
       if (!authUser && !authRoutes.includes(pathname)) {
@@ -44,9 +54,7 @@ export default function ClientLayout({
   }, [authUser, isCheckingAuth, pathname, router]);
 
   if (isCheckingAuth) {
-    return (
-      <Loader />
-    );
+    return <Loader />;
   }
 
   return <>{children}</>;
