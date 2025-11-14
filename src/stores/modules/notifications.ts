@@ -5,12 +5,14 @@ import { getToken, onMessage } from "firebase/messaging";
 import { usePrivateChatStore } from "./privateChats";
 import { useGroupStore } from "./groups";
 import { useAuthStore } from "./auth";
+import { useUIStore } from "./ui";
 
 interface NotificationState {
   isSupported: boolean;
   permission: NotificationPermission;
   fcmToken: string | null;
   isInitialized: boolean;
+  processedMessageIds: Set<string>;
 
   initializePushNotifications: () => Promise<void>;
   requestNotificationPermission: () => Promise<boolean>;
@@ -25,9 +27,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   permission: typeof window !== 'undefined' ? Notification.permission : 'default',
   fcmToken: null,
   isInitialized: false,
+  processedMessageIds: new Set(),
 
   initializePushNotifications: async () => {
     console.log('🔄 [FRONTEND] Starting push notification setup...');
+    
+    // Prevent multiple initializations
+    if (get().isInitialized) {
+      console.log('⚠️ [FRONTEND] Already initialized, skipping');
+      return;
+    }
+
+    // SET THIS IMMEDIATELY to prevent race conditions
+    set({ isInitialized: true });
     
     // Only run on client side
     if (typeof window === 'undefined') {
@@ -56,6 +68,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
           console.log('🔄 [FRONTEND] Registering token with backend...');
           await get().registerDeviceToken(token, 'web');
           console.log('🔄 [FRONTEND] Token registration completed');
+          console.log('🔄 [FRONTEND] Setting up foreground handler (ONE TIME)...');
           get().setupForegroundHandler();
         } else {
           console.log('❌ [FRONTEND] No FCM token received');
@@ -126,28 +139,28 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   registerDeviceToken: async (token: string, deviceType: string = 'web') => {
-  try {
-    console.log('🔄 [FRONTEND] Starting device token registration...');
-    const socket = useAuthStore.getState().socket;
-    console.log('🔄 [FRONTEND] Socket available:', !!socket);
-    console.log('🔄 [FRONTEND] Socket connected:', socket?.connected);
-    
-    if (socket && socket.connected) {
-      console.log('📡 [FRONTEND] Sending token via socket...');
-      socket.emit('registerDeviceToken', { token, deviceType });
-      console.log('✅ [FRONTEND] Device token registered via socket');
-    } else {
-      console.log('🌐 [FRONTEND] Socket not connected, using HTTP...');
-      await axiosInstance.post('/notifications/register-token', {
-        token,
-        deviceType
-      });
-      console.log('✅ [FRONTEND] Device token registered via HTTP');
+    try {
+      console.log('🔄 [FRONTEND] Starting device token registration...');
+      const socket = useAuthStore.getState().socket;
+      console.log('🔄 [FRONTEND] Socket available:', !!socket);
+      console.log('🔄 [FRONTEND] Socket connected:', socket?.connected);
+      
+      if (socket && socket.connected) {
+        console.log('📡 [FRONTEND] Sending token via socket...');
+        socket.emit('registerDeviceToken', { token, deviceType });
+        console.log('✅ [FRONTEND] Device token registered via socket');
+      } else {
+        console.log('🌐 [FRONTEND] Socket not connected, using HTTP...');
+        await axiosInstance.post('/notifications/register-token', {
+          token,
+          deviceType
+        });
+        console.log('✅ [FRONTEND] Device token registered via HTTP');
+      }
+    } catch (error) {
+      console.error('💥 [FRONTEND] Error registering device token:', error);
     }
-  } catch (error) {
-    console.error('💥 [FRONTEND] Error registering device token:', error);
-  }
-},
+  },
 
   removeDeviceToken: async (token: string) => {
     try {
@@ -165,27 +178,104 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   setupForegroundHandler: () => {
-    if (!messaging || typeof window === 'undefined') return null;
+    if (!messaging || typeof window === 'undefined') return;
 
-    // Handle messages when app is in foreground
+    console.log('🔔 [FRONTEND] Setting up foreground message handler');
+
+    // IMPORTANT: onMessage only fires when app is in FOREGROUND
+    // The service worker handles notifications when app is in BACKGROUND
+    // We only need to update the UI state here, NO manual notifications
     onMessage(messaging, (payload) => {
-      console.log('Received foreground message:', payload);
+      console.log('🔔 [FRONTEND] ===== FOREGROUND MESSAGE RECEIVED =====');
+      console.log('🔔 [FRONTEND] Payload:', JSON.stringify(payload, null, 2));
+      console.log('🔔 [FRONTEND] Timestamp:', new Date().toISOString());
       
+      const messageId = payload.data?.messageId;
+      console.log('🔔 [FRONTEND] Message ID:', messageId);
+      
+      // DEDUPLICATION: Check if we've already processed this message
+      if (messageId) {
+        const { processedMessageIds } = get();
+        console.log('🔔 [FRONTEND] Already processed IDs:', Array.from(processedMessageIds));
+        
+        if (processedMessageIds.has(messageId)) {
+          console.log('🔔 [FRONTEND] ❌ DUPLICATE DETECTED - Message already processed, skipping:', messageId);
+          return;
+        }
+        
+        console.log('🔔 [FRONTEND] ✅ New message, marking as processed');
+        // Mark as processed
+        set(state => ({
+          processedMessageIds: new Set([...state.processedMessageIds, messageId])
+        }));
+        
+        // Clean up old message IDs (keep only last 100)
+        setTimeout(() => {
+          set(state => {
+            const ids = Array.from(state.processedMessageIds);
+            if (ids.length > 100) {
+              const newSet = new Set(ids.slice(-100));
+              return { processedMessageIds: newSet };
+            }
+            return state;
+          });
+        }, 0);
+      } else {
+        console.log('🔔 [FRONTEND] ⚠️ No message ID in payload!');
+      }
+      
+      // Check if user is currently in the chat with the sender
+      const senderId = payload.data?.senderId;
+      const { selectedUser } = useUIStore.getState();
+      
+      console.log('🔔 [FRONTEND] Sender ID:', senderId);
+      console.log('🔔 [FRONTEND] Selected User:', selectedUser);
+      
+      // Update UI state based on notification type
+      handleNotificationPayload(payload);
+      
+      // Only show notification if user is NOT viewing this chat
+      // Otherwise it's distracting when they're already looking at it
+      if (senderId && selectedUser === senderId) {
+        console.log('🔔 [FRONTEND] User is viewing this chat, skipping notification (UI already updated)');
+        return;
+      }
+      
+      // Show notification ONLY if payload has notification data
+      // AND user is not in the chat
       if (payload.notification) {
         const { title, body } = payload.notification;
         
-        // Create browser notification
-        new Notification(title || 'New Message', {
-          body: body || 'You have a new message',
-          icon: '/icon.png',
-          badge: '/badge.png',
-          tag: 'chat-notification'
-        });
+        console.log('🔔 [FRONTEND] 📢 Showing notification via Service Worker');
+        console.log('🔔 [FRONTEND] Title:', title);
+        console.log('🔔 [FRONTEND] Body:', body);
         
-        // Handle notification data to update UI
-        handleNotificationPayload(payload);
+        // Let the Service Worker handle the notification
+        // We don't create it manually here to avoid duplicates
+        // The Service Worker will automatically show it
       }
+      
+      console.log('🔔 [FRONTEND] ===== END FOREGROUND MESSAGE =====');
     });
+    
+    // Listen for service worker messages (notification clicks)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('🔔 [FRONTEND] Service worker message:', event.data);
+        
+        if (event.data && event.data.type === 'NOTIFICATION_CLICKED') {
+          // Handle navigation based on notification data
+          const { data } = event.data;
+          
+          if (data.type === 'new_message' && data.senderId) {
+            // Navigate to chat (you'll need to implement this based on your routing)
+            window.location.href = `/chat/${data.senderId}`;
+          } else if (data.type === 'new_group_message' && data.groupId) {
+            window.location.href = `/group/${data.groupId}`;
+          }
+        }
+      });
+    }
   }
 }));
 
@@ -195,18 +285,23 @@ const handleNotificationPayload = (payload: any) => {
   
   if (!data) return;
 
+  console.log('🔔 [FRONTEND] Handling notification payload:', data.type);
+
   switch (data.type) {
     case 'new_message':
       const privateStore = usePrivateChatStore.getState();
+      console.log('🔔 [FRONTEND] Incrementing unread count for:', data.senderId);
       privateStore.incrementUnreadCount(data.senderId);
       break;
       
     case 'new_group_message':
       const groupStore = useGroupStore.getState();
+      console.log('🔔 [FRONTEND] Incrementing unread count for group:', data.groupId);
       groupStore.incrementUnreadCount(data.groupId);
       break;
       
     default:
+      console.log('🔔 [FRONTEND] Unknown notification type:', data.type);
       break;
   }
 };

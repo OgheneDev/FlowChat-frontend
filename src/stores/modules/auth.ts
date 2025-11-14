@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { axiosInstance } from "@/api/axios";
 import { io, Socket } from "socket.io-client";
-import { useNotificationStore } from "./notifications"; // Import the notification store
+import { useNotificationStore } from "./notifications";
 
 const BASE_URL = "https://flowchat-81ni.onrender.com";
 

@@ -7,3 +7,4 @@ export { useStarringStore } from "./modules/starring";
 export { useAuthStore } from "./modules/auth";
 export { useToastStore } from "./modules/toast";
 export type { Tab } from "./modules/ui";
+export { useNotificationStore } from "./modules/notifications"
