@@ -267,20 +267,6 @@ const LoginPage = () => {
               )}
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center">
-              <input
-                id="remember"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-700 bg-black/40 text-cyan-400 focus:ring-2 focus:ring-cyan-400/20 cursor-pointer"
-              />
-              <label htmlFor="remember" className="ml-2 text-sm text-gray-400 cursor-pointer select-none">
-                Remember me for 30 days
-              </label>
-            </div>
-
             {/* Login Button */}
             <button
               type="submit"
