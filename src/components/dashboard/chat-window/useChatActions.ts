@@ -1,8 +1,6 @@
 // components/chat/actions/useChatActions.ts
 import { useState, useCallback } from 'react';
 import { usePrivateChatStore, useGroupStore, usePinningStore, useStarringStore, useUIStore } from '@/stores';
-import { useToastStore } from '@/stores';
-import { getAuthUserId } from '@/utils/utils';
 
 export const useChatActions = ({
   type,
@@ -10,13 +8,13 @@ export const useChatActions = ({
   messages,
   selectedMessages,
   setSelectedMessages,
-  clearSelection,
+  clearSelection, // This already handles both selectedMessages and isSelectionMode
   showToast,
   messageListRef,
   setReplyingTo,
   getAuthUserId: getAuthId,
-  isSelectionMode, // Add this parameter
-  setIsSelectionMode, // Add this parameter
+  isSelectionMode,
+  setIsSelectionMode,
 }: any) => {
   const { deleteMessage: deletePrivate } = usePrivateChatStore();
   const { deleteMessage: deleteGroup } = useGroupStore();
@@ -40,28 +38,23 @@ export const useChatActions = ({
     }
   };
 
-  // Update clearSelection to also exit selection mode
-  const enhancedClearSelection = useCallback(() => {
-    setSelectedMessages([]);
-    setIsSelectionMode(false);
-  }, [setSelectedMessages, setIsSelectionMode]);
-
   const handleStarSelected = async () => {
     for (const id of selectedMessages) await toggleStarMessage(id);
     showToast(`${selectedMessages.length} message(s) starred`, 'success');
-    enhancedClearSelection();
+    clearSelection(); // Clear after action
   };
 
   const handleCopySelected = async () => {
     const text = selectedMessages.map((id: string) => messages.find((m: any) => m._id === id)?.text).join('\n\n');
     await navigator.clipboard.writeText(text);
     showToast(`${selectedMessages.length} message(s) copied`, 'success');
-    enhancedClearSelection();
+    clearSelection(); // Clear after action
   };
 
   const handleForwardSelected = () => {
     const msgs = selectedMessages.map((id: string) => messages.find((m: any) => m._id === id)).filter(Boolean);
     setBulkForwardModal({ isOpen: true, messages: msgs });
+    clearSelection(); // Clear immediately when opening forward modal
   };
 
   const handlePinSelected = async () => {
@@ -69,7 +62,7 @@ export const useChatActions = ({
     const payload = type === 'group' ? { messageId: msg._id, groupId: selectedUser._id } : { messageId: msg._id, chatPartnerId: selectedUser._id };
     await togglePinMessage(payload);
     showToast('Message pinned', 'success');
-    enhancedClearSelection();
+    clearSelection(); // Clear after action
   };
 
   const handleReplySelected = () => {
@@ -80,17 +73,18 @@ export const useChatActions = ({
       image: msg.image || undefined,
       senderId: typeof msg.senderId === 'string' ? { _id: msg.senderId, fullName: 'User' } : msg.senderId,
     });
-    enhancedClearSelection();
+    clearSelection(); // Clear after action
   };
 
   const handleDeleteSelected = async (deleteType?: 'me' | 'everyone') => {
     if (selectedMessages.length === 1 && !deleteType) {
       setDeleteModal({ message: getFirstSelectedMessage(), isBulk: false });
+      // Don't clear here - wait for user to confirm/cancel in modal
       return;
     }
     for (const id of selectedMessages) await deleteMessage({ messageId: id, deleteType: deleteType || 'me' });
     showToast(`${selectedMessages.length} message(s) deleted`, 'success');
-    enhancedClearSelection();
+    clearSelection(); // Clear after deletion is confirmed
     setDeleteModal(null);
   };
 
@@ -106,8 +100,8 @@ export const useChatActions = ({
       }
     }
     showToast(`Forwarded ${msgs.length} message(s)`, 'success');
-    enhancedClearSelection();
     setBulkForwardModal({ isOpen: false, messages: [] });
+    // No need to clear selection here - already cleared when modal opened
   };
 
   const isFirstSelectedPinned = () => selectedMessages.length === 1 && pinnedMessages.includes(selectedMessages[0]);
@@ -128,7 +122,7 @@ export const useChatActions = ({
 
   return {
     handleBack,
-    clearSelection: enhancedClearSelection, // Return the enhanced version
+    clearSelection,
     handleSelectedMessagesChange: setSelectedMessages,
     handleStarSelected,
     handleCopySelected,
