@@ -62,11 +62,9 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     const senderId = message.senderId?._id;
     const isOwn = senderId === authUser?._id;
     let senderFullName: string | null = null;
-    let senderProfilePic: string | null = null;
 
     if (!isOwn && typeof message.senderId === "object") {
       senderFullName = message.senderId.fullName || null;
-      senderProfilePic = message.senderId.profilePic || null;
     }
 
     const showDateSeparator =
@@ -75,9 +73,6 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
         new Date(message.createdAt).toDateString();
 
     const isEditing = editingMessageId === message._id;
-    const initials = senderFullName
-      ? senderFullName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
-      : "?";
 
     // Handle long press event from useContextMenu
     useEffect(() => {
