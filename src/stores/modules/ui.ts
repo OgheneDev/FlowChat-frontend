@@ -26,7 +26,7 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  activeTab: "chats", // This is now correctly typed as Tab
+  activeTab: "chats",
   selectedUser: null,
   replyingTo: null,
   setActiveTab: (tab) => set({ activeTab: tab }),

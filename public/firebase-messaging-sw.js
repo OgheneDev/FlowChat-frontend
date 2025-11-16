@@ -69,39 +69,46 @@ self.addEventListener('notificationclick', (event) => {
   const payload = event.notification.data;
   
   if (payload) {
-    let targetUrl = '/';
+    // Always go to dashboard with query params
+    const params = new URLSearchParams();
     
     if (payload.type === 'new_message' && payload.senderId) {
-      targetUrl = `/chat/${payload.senderId}`;
+      params.set('chat', payload.senderId);
+      params.set('type', 'user');
     } else if (payload.type === 'new_group_message' && payload.groupId) {
-      targetUrl = `/group/${payload.groupId}`;
+      params.set('chat', payload.groupId);
+      params.set('type', 'group');
     }
     
+    const targetUrl = `/dashboard?${params.toString()}`;
     console.log('🔔 [SERVICE WORKER] Target URL:', targetUrl);
     
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
         console.log('🔔 [SERVICE WORKER] Found clients:', windowClients.length);
         
+        // Check if dashboard is already open
         for (let client of windowClients) {
           console.log('🔔 [SERVICE WORKER] Client URL:', client.url);
-          if ('focus' in client) {
-            console.log('🔔 [SERVICE WORKER] Focusing existing client');
+          if (client.url.includes('/dashboard')) {
+            console.log('🔔 [SERVICE WORKER] Focusing existing dashboard window');
             return client.focus().then(() => {
               if (client.postMessage) {
                 client.postMessage({
-                  type: 'NOTIFICATION_CLICKED',
-                  data: payload
+                  type: 'OPEN_CHAT',
+                  chatId: payload.senderId || payload.groupId,
+                  chatType: payload.type === 'new_group_message' ? 'group' : 'user'
                 });
-                console.log('🔔 [SERVICE WORKER] Posted message to client');
+                console.log('🔔 [SERVICE WORKER] Posted OPEN_CHAT message to client');
               }
               return client;
             });
           }
         }
         
+        // No dashboard window found, open new one with params
         if (clients.openWindow) {
-          console.log('🔔 [SERVICE WORKER] Opening new window:', targetUrl);
+          console.log('🔔 [SERVICE WORKER] Opening new dashboard window:', targetUrl);
           return clients.openWindow(targetUrl);
         }
       })
