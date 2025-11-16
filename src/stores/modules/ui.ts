@@ -14,11 +14,11 @@ interface ReplyContext {
 }
 
 interface UIState {
-  activeTab: Tab;  // ← Change from `string` to `Tab`
-  selectedUser: string | null;
+  activeTab: Tab;
+  selectedUser: any | null; // Changed from string to any to accept full objects
   replyingTo: ReplyContext | null;
   setActiveTab: (tab: Tab) => void;
-  setSelectedUser: (id: string | null) => void;
+  setSelectedUser: (user: any | null) => void; // Changed to accept objects
   setReplyingTo: (msg: ReplyContext | null) => void;
   clearReply: () => void;
   scrollToMessageId: string | null;

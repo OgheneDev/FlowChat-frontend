@@ -4,90 +4,84 @@ import React, { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import ChatSidebar from '@/components/dashboard/ChatSidebar'
 import ChatWindow from '@/components/dashboard/ChatWindow'
-import { useUIStore } from '@/stores'
-import { usePrivateChatStore, useGroupStore, useAuthStore } from '@/stores'
+import { useUIStore, useGroupStore, usePrivateChatStore } from '@/stores'
+import { axiosInstance } from '@/api/axios'
 
 const DashboardPage = () => {
   const { selectedUser, activeTab, setSelectedUser, setActiveTab } = useUIStore()
-  const { chats, getChatPartners } = usePrivateChatStore()
-  const { groups, getMyGroups } = useGroupStore()
-  const { authUser } = useAuthStore()
+  const { groups } = useGroupStore()
+  const { chats } = usePrivateChatStore()
   const searchParams = useSearchParams()
   
-  // Helper function to find and set user/group object
-  const findAndSelectChat = async (chatId: string, chatType: string) => {
-    console.log('📱 Finding chat:', { chatId, chatType })
-    
-    if (chatType === 'group') {
-      setActiveTab('groups')
+  // Helper function to fetch and set user/group details
+  const openChatById = async (chatId: string, chatType: 'user' | 'group') => {
+    try {
+      console.log('Opening chat:', { chatId, chatType })
       
-      // Try to find in existing groups
-      let group = groups.find(g => g._id === chatId)
-      
-      if (!group) {
-        console.log('Group not in store, fetching groups...')
-        await getMyGroups()
-        group = useGroupStore.getState().groups.find(g => g._id === chatId)
-      }
-      
-      if (group) {
-        console.log('✅ Found group:', group)
-        setSelectedUser(group._id)
+      if (chatType === 'group') {
+        setActiveTab('groups')
+        
+        // First check if we already have this group in memory
+        const existingGroup = groups.find(g => g._id === chatId)
+        if (existingGroup) {
+          console.log('Using cached group data')
+          setSelectedUser(existingGroup)
+          return
+        }
+        
+        // Otherwise fetch it
+        console.log('Fetching group details...')
+        const { data } = await axiosInstance.get(`/groups/${chatId}`)
+        setSelectedUser(data)
       } else {
-        console.warn('❌ Group not found:', chatId)
-      }
-    } else {
-      setActiveTab('chats')
-      
-      // Try to find in existing chats
-      let chat = chats.find(c => {
-        const partnerId = c.participants?.find(p => p !== authUser?._id)
-        return partnerId === chatId || c._id === chatId
-      })
-      
-      if (!chat) {
-        console.log('Chat not in store, fetching chats...')
-        await getChatPartners()
-        chat = usePrivateChatStore.getState().chats.find(c => {
-          const partnerId = c.participants?.find(p => p !== authUser?._id)
+        setActiveTab('chats')
+        
+        // First check if we already have this chat in memory
+        const existingChat = chats.find(c => {
+          const partnerId = c.participants?.find(p => p !== chatId) || c._id
           return partnerId === chatId || c._id === chatId
         })
+        
+        if (existingChat) {
+          console.log('Using cached user data')
+          setSelectedUser(existingChat)
+          return
+        }
+        
+        // Otherwise fetch the user
+        console.log('Fetching user details...')
+        const { data } = await axiosInstance.get(`/users/${chatId}`)
+        setSelectedUser({ ...data, chatPartnerId: data._id })
       }
-      
-      if (chat) {
-        // Get the partner ID (the other user in the conversation)
-        const partnerId = chat.participants?.find(p => p !== authUser?._id) || chatId
-        console.log('✅ Found chat, setting partner:', partnerId)
-        setSelectedUser(partnerId)
-      } else {
-        console.warn('❌ Chat not found:', chatId)
-      }
+    } catch (error) {
+      console.error('Error opening chat:', error)
     }
   }
   
   // Handle query params on page load (for new window opens from notifications)
   useEffect(() => {
     const chatId = searchParams.get('chat')
-    const chatType = searchParams.get('type')
+    const chatType = searchParams.get('type') as 'user' | 'group' | null
 
-    if (chatId && chatType && authUser) {
-      console.log('📱 Opening chat from URL params:', { chatId, chatType })
-      findAndSelectChat(chatId, chatType)
+    if (chatId && chatType) {
+      console.log('Opening chat from URL params:', { chatId, chatType })
+      openChatById(chatId, chatType)
       
       // Clean up URL params after handling
       window.history.replaceState({}, '', '/dashboard')
     }
-  }, [searchParams, authUser])
+  }, [searchParams])
 
   // Handle postMessage from service worker (for existing windows)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       console.log('📬 Received message from service worker:', event.data)
       
-      if (event.data.type === 'OPEN_CHAT' && authUser) {
+      if (event.data.type === 'OPEN_CHAT') {
         const { chatId, chatType } = event.data
+        
         console.log('📱 Opening chat from service worker message:', { chatId, chatType })
-        findAndSelectChat(chatId, chatType)
+        openChatById(chatId, chatType)
       }
     }
 
@@ -96,25 +90,7 @@ const DashboardPage = () => {
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleMessage)
     }
-  }, [authUser, chats, groups])
-
-  // Get the actual selected user/group object for ChatWindow
-  const getSelectedUserObject = () => {
-    if (!selectedUser) return null
-    
-    if (activeTab === 'groups') {
-      return groups.find(g => g._id === selectedUser) || null
-    } else {
-      // For private chats, find the chat and return it
-      const chat = chats.find(c => {
-        const partnerId = c.participants?.find(p => p !== authUser?._id)
-        return partnerId === selectedUser || c._id === selectedUser
-      })
-      return chat || null
-    }
-  }
-
-  const selectedUserObject = getSelectedUserObject()
+  }, [groups, chats])
   
   return (
     <div className="h-screen">
@@ -122,7 +98,7 @@ const DashboardPage = () => {
       <div className="md:hidden">
         {selectedUser ? (
           <ChatWindow 
-            selectedUser={selectedUserObject} 
+            selectedUser={selectedUser} 
             type={activeTab === 'groups' ? 'group' : 'user'} 
           />
         ) : (
@@ -134,7 +110,7 @@ const DashboardPage = () => {
       <div className="hidden md:flex h-full">
         <ChatSidebar />
         <ChatWindow 
-          selectedUser={selectedUserObject} 
+          selectedUser={selectedUser} 
           type={activeTab === 'groups' ? 'group' : 'user'} 
         />
       </div>
