@@ -214,12 +214,16 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
     const handleMessageTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
       if (!isSelectionMode) {
         handleTouchStart(e, message);
-      }
+      } else {
+        e.preventDefault();
+      } 
     };
 
     const handleMessageTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
       if (!isSelectionMode) {
         handleTouchMove(e);
+      } else {
+        e.preventDefault();
       }
     };
 
