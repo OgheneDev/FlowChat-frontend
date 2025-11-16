@@ -1,4 +1,3 @@
-// modules/ui.ts
 import { create } from "zustand";
 
 export type Tab = "chats" | "contacts" | "groups";

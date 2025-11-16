@@ -35,7 +35,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     cleanupGroupSocketListeners, 
     markGroupMessagesAsSeen 
   } = useGroupStore(); 
-  const { setSelectedUser, scrollToMessageId, setScrollToMessageId } = useUIStore();
+  const { setSelectedUser, scrollToMessageId, setScrollToMessageId, clearReply } = useUIStore();
   const { pinnedMessages, loadPinnedMessagesForChat } = usePinningStore();
   const { showToast } = useToastStore();
   const { socket, authUser } = useAuthStore();
@@ -59,6 +59,8 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
       messageListRef.current.clearSelection?.();
     }
   }, []);
+
+  
 
   // Clear unread counts when selecting a chat
   useEffect(() => {
@@ -148,6 +150,12 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
       }
     }
   }, [selectedUser, type, getPrivateMessages, getGroupMessages, loadPinnedMessagesForChat]);
+
+  useEffect(() => {
+  // Clear reply preview when selectedUser changes
+  clearReply();
+}, [selectedUser, clearReply]);
+
 
   // Chat actions
   const {
