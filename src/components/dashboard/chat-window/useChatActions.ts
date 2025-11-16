@@ -1,4 +1,3 @@
-// components/chat/actions/useChatActions.ts
 import { useState, useCallback } from 'react';
 import { usePrivateChatStore, useGroupStore, usePinningStore, useStarringStore, useUIStore } from '@/stores';
 
@@ -8,7 +7,7 @@ export const useChatActions = ({
   messages,
   selectedMessages,
   setSelectedMessages,
-  clearSelection, // This already handles both selectedMessages and isSelectionMode
+  clearSelection,
   showToast,
   messageListRef,
   setReplyingTo,

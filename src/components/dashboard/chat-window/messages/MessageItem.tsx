@@ -59,7 +59,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
     const { contextMenu, setContextMenu, contextMenuRef, showContextMenu, handleTouchStart, handleTouchMove, handleTouchEnd } = useContextMenu();
 
-    const senderId = typeof message.senderId === "string" ? message.senderId : message.senderId?._id;
+    const senderId = message.senderId?._id;
     const isOwn = senderId === authUser?._id;
     let senderFullName: string | null = null;
     let senderProfilePic: string | null = null;
@@ -360,7 +360,7 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
                   <div className="flex items-center gap-2 text-xs font-medium text-gray-300">
                     <Reply className="w-3 h-3 flex-shrink-0" />
                     <span className="font-semibold">
-                      {isOwn ? "You" : senderFullName || "User"}
+                      {message.replyTo.senderId._id === authUser?._id ? "You" : message.replyTo.senderId.fullName || "User"}
                     </span>
                     <span className="truncate max-w-[160px] ml-1">
                       {message.replyTo.text || "📷 Image"}

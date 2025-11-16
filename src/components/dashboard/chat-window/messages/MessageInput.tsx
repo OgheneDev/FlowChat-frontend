@@ -39,21 +39,39 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
   }, [text]);
 
-  // Handle image
+  // Handle image with better mobile support
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    // Clear previous file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    
     if (file.size > 5 * 1024 * 1024) {
       alert("Max 5MB");
       return;
     }
 
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert("Please select an image file");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = () => setPreview(reader.result as string);
+    reader.onload = () => {
+      setPreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      console.error("Error reading image file");
+      alert("Error loading image. Please try another image.");
+    };
     reader.readAsDataURL(file);
     setImage(file);
   };
@@ -92,25 +110,23 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
     try {
       // Create optimistic message for UI
-      // Using 'as any' to bypass strict type checking for optimistic updates
       const optimisticMessage = {
         _id: `temp-${Date.now()}-${Math.random()}`,
         text: payload.text || "",
         image: preview || null,
-        senderId: authUser, // Full user object for display
+        senderId: authUser,
         receiverId: type === "group" ? undefined : receiverId,
         groupId: type === "group" ? receiverId : undefined,
         status: "sent" as const,
         replyTo: replyingTo || null,
         createdAt: new Date().toISOString(),
-      } as any; // Temporary type bypass for optimistic update
+      } as any;
 
       // Add optimistically to UI
       if (type === "group") {
         console.log("➕ Adding optimistic group message:", optimisticMessage._id);
         useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
         
-        // Emit via socket
         console.log("📤 Emitting sendGroupMessage to server");
         socket.emit("sendGroupMessage", {
           groupId: receiverId,
@@ -120,7 +136,6 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
         console.log("➕ Adding optimistic private message:", optimisticMessage._id);
         usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
         
-        // Emit via socket
         console.log("📤 Emitting sendMessage to server");
         socket.emit("sendMessage", {
           receiverId,
@@ -130,27 +145,31 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       
       console.log("✅ Message sent successfully (optimistic)");
 
-      // Clear form immediately for better UX
+      // Clear form
       setText("");
       setImage(null);
       setPreview("");
       clearReply();
       
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+      
     } catch (error) {
       console.error("Failed to send message:", error);
       alert("Failed to send message. Please try again.");
-      // TODO: Implement proper error handling and rollback
     }
   };
 
   return (
-    <div className="border-t border-[#2a2a2a] bg-[#1e1e1e] p-4 space-y-3">
+    <div className="border-t border-[#2a2a2a] bg-[#1e1e1e] p-4 space-y-3 sticky bottom-0 z-10">
       {/* Reply Preview */}
       {replyingTo && (
         <div className="bg-[#2a2a2a]/60 rounded-lg p-3 border-l-4 border-[#00d9ff] flex items-center gap-3 animate-in slide-in-from-top">
-          <Reply className="w-4 h-4 text-[#00d9ff]" />
-          <div className="flex-1">
-            <p className="text-xs text-[#00d9ff] font-semibold">
+          <Reply className="w-4 h-4 text-[#00d9ff] flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-[#00d9ff] font-semibold truncate">
               Replying to {replyName}
             </p>
             <p className="text-xs text-[#999] truncate">
@@ -159,7 +178,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
           </div>
           <button
             onClick={clearReply}
-            className="p-1 hover:bg-[#333] rounded"
+            className="p-1 hover:bg-[#333] rounded flex-shrink-0"
           >
             <X className="w-4 h-4 text-[#999]" />
           </button>
@@ -168,14 +187,18 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
       {/* Image Preview */}
       {preview && (
-        <div className="relative inline-block">
-          <img src={preview} alt="preview" className="max-h-32 rounded-lg" />
+        <div className="relative inline-block bg-[#2a2a2a] rounded-lg p-2">
+          <img 
+            src={preview} 
+            alt="preview" 
+            className="max-h-32 max-w-full rounded-lg object-contain" 
+          />
           <button
             onClick={() => {
               setImage(null);
               setPreview("");
             }}
-            className="absolute top-1 right-1 p-1 bg-black/70 rounded-full"
+            className="absolute top-1 right-1 p-1 bg-black/70 rounded-full hover:bg-black/90 transition-colors"
           >
             <X className="w-4 h-4 text-white" />
           </button>
@@ -184,12 +207,13 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
       {/* Input Area */}
       <div className="flex items-end gap-2">
-        <label className="p-2 hover:bg-[#2a2a2a] rounded-lg cursor-pointer transition-colors">
+        <label className="p-2 hover:bg-[#2a2a2a] rounded-lg cursor-pointer transition-colors flex-shrink-0">
           <ImageIcon className="w-5 h-5 text-[#999]" />
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleImage}
           />
@@ -206,14 +230,14 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
             }
           }}
           placeholder="Type a message..."
-          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm resize-none max-h-32 overflow-y-auto"
+          className="flex-1 bg-[#2a2a2a] text-white rounded-lg px-4 py-2.5 outline-none text-sm resize-none overflow-y-auto min-h-[44px] max-h-32"
           rows={1}
         />
 
         <button
           onClick={send}
           disabled={isSendingMessage || (!text.trim() && !image)}
-          className="p-2.5 bg-[#00d9ff] hover:bg-[#00b8d4] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-2.5 bg-[#00d9ff] hover:bg-[#00b8d4] rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 min-h-[44px]"
         >
           <Send className="w-5 h-5 text-black" />
         </button>
