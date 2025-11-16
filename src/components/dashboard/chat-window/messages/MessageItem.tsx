@@ -301,23 +301,6 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
             </div>
           )}
 
-          {/* Avatar - only for non-own messages, left-aligned */}
-          {!isOwn && (
-            <div className="relative w-9 h-9 rounded-full overflow-hidden ring-2 ring-[#2a2a2a]/50 ring-offset-2 ring-offset-transparent transition-all duration-300 group-hover:ring-[#00d9ff]/40 flex-shrink-0">
-              {senderProfilePic ? (
-                <img 
-                  src={senderProfilePic} 
-                  alt={senderFullName || "User"} 
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#00d9ff] bg-gradient-to-br from-[#1a1a1a]/80 to-[#2a2a2a]/80 border border-[#2a2a2a]/50">
-                  {initials}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Message Content Container - Constrained width */}
           <div className={`flex flex-col gap-1.5 flex-1 min-w-0 ${
             isOwn ? "items-end" : "items-start"
