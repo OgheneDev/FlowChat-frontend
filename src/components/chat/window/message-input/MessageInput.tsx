@@ -32,7 +32,7 @@ const emojiCategories: Record<EmojiCategory, EmojiCategoryData> = {
   activities: { icon: "⚽", name: "Activities", emojis: ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽", "🛹", "🛼", "🛷", "⛸️", "🥌", "🎿", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏄", "🏊", "🤽", "🚣", "🧗", "🚵", "🚴", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "🏵️", "🎗️", "🎫", "🎟️", "🎪"] },
   objects: { icon: "💡", name: "Objects", emojis: ["⌚", "📱", "📲", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️", "🕹️", "🗜️", "💽", "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽️", "🎞️", "📞", "☎️", "📟", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🧭", "⏱️", "⏲️", "⏰", "🕰️", "⌛", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "🕯️", "🪔", "🧯", "🛢️", "💸", "💵", "💴", "💶", "💷", "🪙", "💰", "💳", "💎", "⚖️", "🪜", "🧰", "🪛", "🔧", "🔨"] },
   symbols: { icon: "💯", name: "Symbols", emojis: ["💯", "💢", "♨️", "🚫", "❗", "❕", "❓", "❔", "‼️", "⁉️", "⚠️", "🚸", "🔱", "⚜️", "🔰", "♻️", "✅", "❇️", "✳️", "❎", "💠", "🌀", "💤", "🎵", "🎶", "➕", "➖", "➗", "✖️", "♾️", "💲", "💱", "™️", "©️", "®️", "〰️", "➰", "➿", "✔️", "☑️", "🔘", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "🔺", "🔻", "🔸", "🔹", "🔶", "🔷", "🔳", "🔲", "▪️", "▫️", "◾", "◽", "◼️", "◻️"] },
-  flags: { icon: "🏳️", name: "Flags", emojis: ["🏳️", "🏴", "🏁", "🚩", "🏳️‍🌈", "🏳️‍⚧️", "🏴‍☠️", "🇦🇫", "🇦🇱", "🇩🇿", "🇦🇸", "🇦🇩", "🇦🇴", "🇦🇮", "🇦🇶", "🇦🇬", "🇦🇷", "🇦🇲", "🇦🇼", "🇦🇺", "🇦🇹", "🇦🇿", "🇧🇸", "🇧🇭", "🇧🇩", "🇧🇧", "🇧🇾", "🇧🇪", "🇧🇿", "🇧🇯", "🇧🇲", "🇧🇹", "🇧🇴", "🇧🇦", "🇧🇼", "🇧🇷", "🇮🇴", "🇻🇬", "🇧🇳", "🇧🇬", "🇧🇫", "🇧🇮", "🇰🇭", "🇨🇲", "🇨🇦", "🇮🇨", "🇨🇻", "🇧🇶", "🇰🇾", "🇨🇫", "🇹🇩", "🇨🇱", "🇨🇳", "🇨🇽", "🇨🇨", "🇨🇴", "🇰🇲", "🇨🇬", "🇨🇩", "🇨🇰", "🇨🇷", "🇨🇮", "🇭🇷"] }
+  flags: { icon: "🏳️", name: "Flags", emojis: ["🏳️", "🏴", "🏁", "🚩", "🏳️‍🌈", "🏳️‍⚧️", "🏴‍☠️", "🇦🇫", "🇦🇱", "🇩🇿", "🇦🇸", "🇦🇩", "🇦🇴", "🇦🇮", "🇦🇶", "🇦🇬", "🇦🇷", "🇦🇲", "🇦🇼", "🇦🇺", "🇦🇹", "🇦🇿", "🇧🇸", "🇧🇭", "🇧🇩", "🇧🇧", "🇧🇾", "🇧🇪", "🇧🇿", "🇧🇯", "🇧🇲", "🇧🇹", "🇧🇴", "🇧🇦", "🇧🇼", "🇧🇷", "🇮🇴", "🇻🇸", "🇧🇳", "🇧🇬", "🇧🇫", "🇧🇮", "🇰🇭", "🇨🇲", "🇨🇦", "🇮🇨", "🇨🇻", "🇧🇶", "🇰🇾", "🇨🇫", "🇹🇩", "🇨🇱", "🇨🇳", "🇨🇽", "🇨🇨", "🇨🇴", "🇰🇲", "🇨🇬", "🇨🇩", "🇨🇰", "🇨🇷", "🇨🇮", "🇭🇷"] }
 };
 
 const MessageInput = ({ receiverId, type }: MessageInputProps) => {
@@ -302,68 +302,63 @@ captureBtn.addEventListener('mouseleave', () => {
     });
   };
 
-  // In the send() function, change the optimistic message creation:
+  const send = async () => {
+    if (isSendingMessage || (!text.trim() && !image)) return;
 
-const send = async () => {
-  if (isSendingMessage || (!text.trim() && !image)) return;
-
-  if (!socket || !socket.connected) {
-    console.error("Socket not connected");
-    alert("Connection lost. Please refresh the page.");
-    return;
-  }
-
-  if (!authUser) {
-    console.error("User not authenticated");
-    return;
-  }
-
-  const payload: { text?: string; image?: string; replyTo?: string } = {};
-  if (text.trim()) payload.text = text.trim();
-  if (image) payload.image = await imageToBase64(image);
-  if (replyingTo) payload.replyTo = replyingTo._id;
-
-  try {
-    const optimisticMessage = {
-      _id: `temp-${Date.now()}-${Math.random()}`,
-      text: payload.text || "",
-      image: preview || null,
-      senderId: authUser,
-      receiverId: type === "group" ? undefined : receiverId,
-      groupId: type === "group" ? receiverId : undefined,
-      status: "sent" as const,
-      // FIX: Cast ReplyContext to Message for optimistic rendering
-      // The display component only needs _id, text, image, and senderId anyway
-      replyTo: replyingTo ? {
-        _id: replyingTo._id,
-        text: replyingTo.text || "",
-        image: replyingTo.image,
-        senderId: replyingTo.senderId,
-        // Add dummy values for required Message fields
-        status: "sent" as const,
-        createdAt: new Date().toISOString(),
-      } as Message : undefined,
-      createdAt: new Date().toISOString(),
-    };
-
-    if (type === "group") {
-      useGroupStore.getState().addIncomingGroupMessage(optimisticMessage as Message);
-      socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
-    } else {
-      usePrivateChatStore.getState().addIncomingMessage(optimisticMessage as Message);
-      socket.emit("sendMessage", { receiverId, ...payload });
+    if (!socket || !socket.connected) {
+      console.error("Socket not connected");
+      alert("Connection lost. Please refresh the page.");
+      return;
     }
 
-    setText("");
-    setImage(null);
-    setPreview("");
-    clearReply();
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  } catch (error) {
-    console.error("Failed to send message:", error);
-    alert("Failed to send message. Please try again.");
-  }
-};
+    if (!authUser) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    const payload: { text?: string; image?: string; replyTo?: string } = {};
+    if (text.trim()) payload.text = text.trim();
+    if (image) payload.image = await imageToBase64(image);
+    if (replyingTo) payload.replyTo = replyingTo._id;
+
+    try {
+      const optimisticMessage = {
+        _id: `temp-${Date.now()}-${Math.random()}`,
+        text: payload.text || "",
+        image: preview || null,
+        senderId: authUser,
+        receiverId: type === "group" ? undefined : receiverId,
+        groupId: type === "group" ? receiverId : undefined,
+        status: "sent" as const,
+        replyTo: replyingTo ? {
+          _id: replyingTo._id,
+          text: replyingTo.text || "",
+          image: replyingTo.image,
+          senderId: replyingTo.senderId,
+          status: "sent" as const,
+          createdAt: new Date().toISOString(),
+        } as Message : undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (type === "group") {
+        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage as Message);
+        socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
+      } else {
+        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage as Message);
+        socket.emit("sendMessage", { receiverId, ...payload });
+      }
+
+      setText("");
+      setImage(null);
+      setPreview("");
+      clearReply();
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      alert("Failed to send message. Please try again.");
+    }
+  };
 
   const getCategoryEmojis = (category: EmojiCategory): string[] => {
     if (category === "recent") return recentEmojis;
@@ -384,14 +379,14 @@ const send = async () => {
 
       {/* Image Preview */}
       {preview && (
-        <div className="relative inline-block">
-          <div className="relative bg-[#2a2a2a] rounded-xl p-2 inline-block">
+        <div className="relative inline-block max-w-full">
+          <div className="relative bg-[#2a2a2a] rounded-xl p-2 inline-block max-w-[90%]">
             <Image
               width={160}
               height={160}
               src={preview}
               alt="preview"
-              className="max-h-40 rounded-lg object-contain" 
+              className="max-h-40 rounded-lg object-contain max-w-full" 
             />
             <button
               onClick={() => {
@@ -409,9 +404,9 @@ const send = async () => {
       {/* Input Row */}
       <div className="flex items-end gap-2">
         {/* Input Box */}
-        <div className="flex-1 bg-[#2a2a2a] rounded-3xl flex items-end px-2 py-1 gap-1 relative">
+        <div className="flex-1 bg-[#2a2a2a] rounded-3xl flex items-end px-2 py-1 gap-1 relative min-w-0">
           {/* Emoji Button */}
-          <div ref={emojiRef} className="relative">
+          <div ref={emojiRef} className="relative flex-shrink-0">
             <button
               onClick={() => setShowEmoji(!showEmoji)}
               className={`p-2 rounded-full transition-all cursor-pointer duration-200 ${
@@ -420,12 +415,12 @@ const send = async () => {
                   : "text-gray-400 hover:text-gray-300"
               }`}
             >
-              <Smile className="w-6 h-6" />
+              <Smile className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
             {/* Emoji Picker */}
             {showEmoji && (
-              <div className="absolute bottom-14 left-0 w-80 bg-[#1e1e1e] rounded-2xl shadow-2xl border border-[#3a3a3a] overflow-hidden z-500">
+              <div className="absolute bottom-14 left-0 w-[90vw] max-w-80 bg-[#1e1e1e] rounded-2xl shadow-2xl border border-[#3a3a3a] overflow-hidden z-500">
                 {/* Category Tabs */}
                 <div className="flex items-center gap-1 px-2 py-2 bg-[#161616] border-b border-[#3a3a3a] overflow-x-auto">
                   {(Object.keys(emojiCategories) as EmojiCategory[]).map((key) => (
@@ -444,11 +439,11 @@ const send = async () => {
                 </div>
 
                 {/* Emoji Grid */}
-                <div className="h-64 overflow-y-auto p-2">
+                <div className="h-48 sm:h-64 overflow-y-auto p-2">
                   <p className="text-xs text-gray-500 px-2 py-1 font-medium uppercase tracking-wide">
                     {emojiCategories[activeCategory].name}
                   </p>
-                  <div className="grid grid-cols-8 gap-0.5">
+                  <div className="grid grid-cols-7 sm:grid-cols-8 gap-0.5">
                     {getCategoryEmojis(activeCategory).map((emoji, i) => (
                       <button
                         key={`${emoji}-${i}`}
@@ -465,24 +460,24 @@ const send = async () => {
           </div>
 
           {/* Camera Button with Options */}
-          <div ref={cameraOptionsRef} className="relative">
+          <div ref={cameraOptionsRef} className="relative flex-shrink-0">
             <button
               onClick={() => setShowCameraOptions(!showCameraOptions)}
               className="p-2 rounded-full text-gray-400 cursor-pointer hover:text-gray-300 transition-colors"
             >
-              <ImageIcon className="w-6 h-6" />
+              <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
 
             {/* Camera Options Dropdown */}
             {showCameraOptions && (
-              <div className="absolute bottom-12 left-0 bg-[#1e1e1e] border border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden z-500 min-w-48">
+              <div className="absolute bottom-12 left-0 bg-[#1e1e1e] border border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden z-500 min-w-40 sm:min-w-48">
                 <button
                   onClick={openCamera}
-                  className="w-full px-4 py-3  text-white text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
+                  className="w-full px-4 py-3 text-white text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
                 >
                   Take Photo
                 </button>
-                <label className="w-full px-4 py-3  text-white text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
+                <label className="w-full px-4 py-3 text-white text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
                   Choose from Gallery
                   <input
                     ref={cameraInputRef}
@@ -508,7 +503,7 @@ const send = async () => {
               }
             }}
             placeholder="Type a message..."
-            className="flex-1 bg-transparent text-white placeholder-gray-500 px-2 py-2.5 outline-none text-sm resize-none overflow-y-auto min-h-[44px] max-h-32 leading-5"
+            className="flex-1 bg-transparent text-white placeholder-gray-500 px-2 py-2.5 outline-none text-sm resize-none overflow-y-auto min-h-[44px] max-h-32 leading-5 w-full"
             rows={1}
           />
         </div>
@@ -517,14 +512,14 @@ const send = async () => {
         <button
           onClick={send}
           disabled={isSendingMessage || (!text.trim() && !image)}
-          className={`p-3 rounded-full cursor-pointer transition-all duration-300 shadow-lg ${
+          className={`p-3 rounded-full cursor-pointer transition-all duration-300 shadow-lg flex-shrink-0 ${
             text.trim() || image
               ? "bg-[#00d9ff] hover:bg-[#00b8d4] active:scale-95"
               : "bg-[#00d9ff]/50 cursor-not-allowed"
           } ${isSendingMessage ? "opacity-70 scale-95" : ""}`}
         >
           <Send
-            className={`w-5 h-5 text-black ${isSendingMessage ? "animate-pulse" : ""}`}
+            className={`w-4 h-4 sm:w-5 sm:h-5 text-black ${isSendingMessage ? "animate-pulse" : ""}`}
           />
         </button>
       </div>
