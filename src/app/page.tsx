@@ -15,7 +15,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!isCheckingAuth) {
       if (authUser) {
-        router.replace("/dashboard")
+        router.replace("/chat")
       } else {
         router.replace("/login")
       }

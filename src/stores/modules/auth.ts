@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { axiosInstance } from "@/api/axios";
 import { io, Socket } from "socket.io-client";
 import { useNotificationStore } from "./notifications";
+import { usePrivateChatStore } from "./privateChats";
+import { useGroupStore } from "./groups";
 
 const BASE_URL = "https://flowchat-81ni.onrender.com";
 
@@ -75,7 +77,8 @@ interface AuthStore {
   
   connectSocket: () => void;
   disconnectSocket: () => void;
-  initializePushNotifications: () => Promise<void>; // New method
+  initializePushNotifications: () => Promise<void>;
+  fetchInitialUnreadCounts: () => Promise<void>; // NEW
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -91,7 +94,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   socket: null,
   onlineUsers: [],
 
-  // Add this new method to initialize push notifications
   initializePushNotifications: async () => {
     try {
       const notificationStore = useNotificationStore.getState();
@@ -102,6 +104,21 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
+  // Fetch unread counts - now optional since chats/groups include them
+  // Keep as fallback for socket reconnection scenarios
+  fetchInitialUnreadCounts: async () => {
+    try {
+      // This is now mainly used as a fallback/refresh mechanism
+      // Primary unread counts come with getChatPartners and getMyGroups
+      const socket = get().socket;
+      if (socket?.connected) {
+        socket.emit("requestUnreadCounts");
+      }
+    } catch (error) {
+      console.error("Failed to fetch initial unread counts:", error);
+    }
+  },
+
   checkAuth: async () => {
     try {
       const response = await axiosInstance.get("/auth/check");
@@ -109,9 +126,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ authUser: response.data });
       get().connectSocket();
       
-      // Initialize push notifications after auth check
       if (response.data) {
         get().initializePushNotifications();
+        // Unread counts will be fetched via socket on connect
+        // or can be triggered from chat page after chats load
       }
     } catch (error) {
       console.log("Error in authentication check:", error);
@@ -127,10 +145,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const response = await axiosInstance.post("/auth/signup", data);
       set({ authUser: response.data });
       get().connectSocket();
-      
-      // Initialize push notifications after signup
       get().initializePushNotifications();
-      
       return response.data;
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error creating account";
@@ -146,10 +161,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const response = await axiosInstance.post("/auth/login", data);
       set({ authUser: response.data });
       get().connectSocket();
-      
-      // Initialize push notifications after login
       get().initializePushNotifications();
-      
+      // NEW: Fetch unread counts after login
+      get().fetchInitialUnreadCounts();
       return response.data;
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error logging in";
@@ -161,7 +175,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   logout: async () => {
     try {
-      // Remove device tokens before logout
       const notificationStore = useNotificationStore.getState();
       if (notificationStore.fcmToken) {
         await notificationStore.removeDeviceToken(notificationStore.fcmToken);
@@ -190,13 +203,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   deleteAccount: async (data) => {
     set({ isDeleting: true });
     try {
-      // Remove device tokens before account deletion
       const notificationStore = useNotificationStore.getState();
       if (notificationStore.fcmToken) {
         await notificationStore.removeDeviceToken(notificationStore.fcmToken);
       }
       
-      const response = await axiosInstance.delete("/auth/delete", { data });
+      await axiosInstance.delete("/auth/delete", { data });
       set({ authUser: null });
       get().disconnectSocket();
     } catch (error) {
@@ -222,10 +234,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   forgotPassword: async (data: ForgotPasswordData) => {
     set({ isSendingResetEmail: true });
     try {
-      const response = await axiosInstance.post("/auth/forgot-password", data);
-      console.log("Reset email sent:", response.data);
+      await axiosInstance.post("/auth/forgot-password", data);
     } catch (error: any) {
-      const errorMessage = error?.response?.data?.message || "If the email exists, a reset link has been sent";
       console.log("Forgot password request completed");
     } finally {
       set({ isSendingResetEmail: false });
@@ -235,10 +245,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   resetPassword: async (data: ResetPasswordData) => {
     set({ isResettingPassword: true });
     try {
-      const response = await axiosInstance.put(`/auth/reset-password/${data.resetToken}`, {
+      await axiosInstance.put(`/auth/reset-password/${data.resetToken}`, {
         password: data.password
       });
-      console.log("Password reset successfully:", response.data);
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || "Error resetting password";
       throw new Error(errorMessage);
@@ -259,10 +268,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     socket.connect();
 
-    // Add connection event listeners
-  socket.on('connect', () => {
-    console.log('✅ [FRONTEND] Socket connected successfully');
-  });
+    socket.on('connect', () => {
+      console.log('✅ [FRONTEND] Socket connected successfully');
+      // NEW: Request unread counts via socket as backup
+      socket.emit("requestUnreadCounts");
+    });
 
     set({ socket });
 
@@ -270,7 +280,32 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ onlineUsers: userIds });
     });
 
-    // Add socket listener for push notification registration
+    // NEW: Listen for all unread counts response
+    socket.on("allUnreadCounts", (counts: Record<string, { count: number; isGroup: boolean }>) => {
+      console.log("📬 Received unread counts via socket:", counts);
+      
+      Object.entries(counts).forEach(([chatId, { count, isGroup }]) => {
+        if (isGroup) {
+          useGroupStore.setState((state) => ({
+            unreadCounts: { ...state.unreadCounts, [chatId]: count },
+            groups: state.groups.map(g => 
+              g._id === chatId ? { ...g, unreadCount: count } : g
+            )
+          }));
+        } else {
+          usePrivateChatStore.setState((state) => ({
+            unreadCounts: { ...state.unreadCounts, [chatId]: count },
+            chats: state.chats.map(c => {
+              const partnerId = c.participants?.find(
+                p => p !== get().authUser?._id
+              ) || c._id;
+              return partnerId === chatId ? { ...c, unreadCount: count } : c;
+            })
+          }));
+        }
+      });
+    });
+
     socket.on("deviceTokenRegistered", (data: { success: boolean }) => {
       if (data.success) {
         console.log("Device token registered successfully via socket");

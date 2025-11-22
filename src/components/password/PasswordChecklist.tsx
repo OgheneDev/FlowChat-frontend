@@ -1,12 +1,5 @@
 import { Check, X } from 'lucide-react';
-
-interface PasswordChecks {
-  minLength: boolean;
-  hasNumber: boolean;
-  hasSpecial: boolean;
-  hasUpper: boolean;
-  hasLower: boolean;
-}
+import { PasswordChecks } from '@/types/types';
 
 const PasswordChecklist = ({ passwordChecks }: { passwordChecks: PasswordChecks }) => {
   return (

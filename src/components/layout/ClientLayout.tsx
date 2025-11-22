@@ -1,8 +1,7 @@
-
 "use client";
 
 import React, { useEffect } from "react";
-import { useAuthStore } from "@/stores";
+import { useAuthStore, usePrivateChatStore, useGroupStore } from "@/stores";
 import { useNotificationStore } from "@/stores";
 import { usePathname, useRouter } from "next/navigation";
 import Loader from "../ui/Loader";
@@ -12,18 +11,12 @@ export default function ClientLayout({
 }: {
   children: React.ReactNode;
 }) {
-  type AuthStoreShape = {
-    authUser: unknown;
-    isCheckingAuth: boolean;
-    checkAuth: () => void;
-  };
-
   const router = useRouter();
   const pathname = usePathname();
 
-  const { authUser, isCheckingAuth, checkAuth } =
-    useAuthStore() as AuthStoreShape;
-    
+  const { authUser, isCheckingAuth, checkAuth } = useAuthStore();
+  const { getChatPartners } = usePrivateChatStore();
+  const { getMyGroups } = useGroupStore();
   const { initializePushNotifications } = useNotificationStore();
 
   const authRoutes = [
@@ -32,76 +25,6 @@ export default function ClientLayout({
     "/forgot-password",
     "/reset-password",
   ];
-
-  // ADD DEBUG HELPER - Runs once on mount
-  useEffect(() => {
-    console.log('🐛 [DEBUG] Installing notification tracking...');
-    
-    const OriginalNotification = window.Notification;
-    let notificationCreateCounter = 0;
-    
-    // @ts-ignore - We're intentionally overriding for debugging
-    window.Notification = function(...args: any[]) {
-      notificationCreateCounter++;
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🚨 [DEBUG] NEW NOTIFICATION CREATED #' + notificationCreateCounter);
-      console.log('🚨 [DEBUG] Timestamp:', new Date().toISOString());
-      console.log('🚨 [DEBUG] Title:', args[0]);
-      console.log('🚨 [DEBUG] Options:', args[1]);
-      console.log('🚨 [DEBUG] Stack trace:');
-      console.trace();
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // @ts-ignore
-      return new OriginalNotification(args[0], args[1]);
-    };
-    
-    // Copy static methods and properties
-    Object.setPrototypeOf(window.Notification, OriginalNotification);
-    Object.defineProperty(window.Notification, 'permission', {
-      get: () => OriginalNotification.permission
-    });
-    // @ts-ignore
-    window.Notification.requestPermission = OriginalNotification.requestPermission.bind(OriginalNotification);
-    
-    // Track if setupForegroundHandler is called multiple times
-    let setupCount = 0;
-    const originalLog = console.log;
-    console.log = function(...args: any[]) {
-      const message = args.join(' ');
-      if (message.includes('Setting up foreground message handler')) {
-        setupCount++;
-        console.warn(`⚠️ [DEBUG] setupForegroundHandler called ${setupCount} times!`);
-      }
-      return originalLog.apply(console, args);
-    };
-    
-    console.log('✅ [DEBUG] Notification tracking installed');
-
-    // Check for multiple service workers
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        console.log('🔍 [DEBUG] Active service workers:', registrations.length);
-        registrations.forEach((reg, i) => {
-          console.log(`🔍 [DEBUG] SW #${i + 1}:`, reg.scope);
-        });
-      });
-    }
-
-    // Summary after 8 seconds (after message should be sent)
-    const summaryTimer = setTimeout(() => {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('📊 [DEBUG] NOTIFICATION CREATION SUMMARY');
-      console.log('📊 [DEBUG] new Notification() calls:', notificationCreateCounter);
-      console.log('📊 [DEBUG] setupForegroundHandler calls:', setupCount);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    }, 8000);
-
-    return () => {
-      clearTimeout(summaryTimer);
-      console.log = originalLog; // Restore original console.log
-    };
-  }, []); // Empty dependency array - runs once
 
   useEffect(() => {
     checkAuth();
@@ -113,14 +36,36 @@ export default function ClientLayout({
       console.log('🔄 [CLIENT LAYOUT] Calling initializePushNotifications...');
       initializePushNotifications();
     }
-  }, [authUser, isCheckingAuth]);
+  }, [authUser, isCheckingAuth, initializePushNotifications]);
+
+  // Load chats and groups (unread counts now included in API response)
+  useEffect(() => {
+    if (authUser && !isCheckingAuth) {
+      const loadData = async () => {
+        try {
+          console.log('📬 Loading chats and groups...');
+          // ✅ Chats and groups now include unread counts from backend
+          // No separate fetch needed!
+          await Promise.all([
+            getChatPartners(),
+            getMyGroups()
+          ]);
+          console.log('📬 Chats and groups loaded with unread counts!');
+        } catch (error) {
+          console.error('Error loading initial data:', error);
+        }
+      };
+      
+      loadData();
+    }
+  }, [authUser, isCheckingAuth, getChatPartners, getMyGroups]);
 
   useEffect(() => {
     if (!isCheckingAuth) {
       if (!authUser && !authRoutes.includes(pathname)) {
         router.replace("/login");
       } else if (authUser && authRoutes.includes(pathname)) {
-        router.replace("/dashboard");
+        router.replace("/chat");
       }
     }
   }, [authUser, isCheckingAuth, pathname, router]);

@@ -69,7 +69,7 @@ self.addEventListener('notificationclick', (event) => {
   const payload = event.notification.data;
   
   if (payload) {
-    // Always go to dashboard with query params
+    // Always go to chat page with query params
     const params = new URLSearchParams();
     
     if (payload.type === 'new_message' && payload.senderId) {
@@ -80,18 +80,18 @@ self.addEventListener('notificationclick', (event) => {
       params.set('type', 'group');
     }
     
-    const targetUrl = `/dashboard?${params.toString()}`;
+    const targetUrl = `/chat?${params.toString()}`;
     console.log('🔔 [SERVICE WORKER] Target URL:', targetUrl);
     
     event.waitUntil(
       clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
         console.log('🔔 [SERVICE WORKER] Found clients:', windowClients.length);
         
-        // Check if dashboard is already open
+        // Check if chat is already open
         for (let client of windowClients) {
           console.log('🔔 [SERVICE WORKER] Client URL:', client.url);
-          if (client.url.includes('/dashboard')) {
-            console.log('🔔 [SERVICE WORKER] Focusing existing dashboard window');
+          if (client.url.includes('/chat')) {
+            console.log('🔔 [SERVICE WORKER] Focusing existing chat window');
             return client.focus().then(() => {
               if (client.postMessage) {
                 client.postMessage({
@@ -106,9 +106,9 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         
-        // No dashboard window found, open new one with params
+        // No chat window found, open new one with params
         if (clients.openWindow) {
-          console.log('🔔 [SERVICE WORKER] Opening new dashboard window:', targetUrl);
+          console.log('🔔 [SERVICE WORKER] Opening new chat window:', targetUrl);
           return clients.openWindow(targetUrl);
         }
       })

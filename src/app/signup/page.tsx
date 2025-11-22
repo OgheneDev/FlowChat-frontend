@@ -118,7 +118,7 @@ const SignUpPage = () => {
       });
 
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        window.location.href = '/chat';
       }, 2000);
 
     } catch (error: any) {

@@ -176,3 +176,14 @@
   -ms-user-select: none;
   user-select: none;
 }
+
+.highlight-message {
+  animation: highlightPulse 0.3s ease-out;
+}
+
+@keyframes highlightPulse {
+  0%, 100% { background-color: transparent; }
+  25% { background-color: rgba(0, 217, 255, 0.2); }
+  50% { background-color: rgba(0, 217, 255, 0.15); }
+  75% { background-color: rgba(0, 217, 255, 0.1); }
+}
