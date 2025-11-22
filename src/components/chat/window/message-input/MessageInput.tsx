@@ -6,6 +6,7 @@ import { usePrivateChatStore, useGroupStore, useUIStore } from "@/stores";
 import { useAuthStore } from "@/stores";
 import Image from "next/image";
 import ReplyPreview from "./ReplyPreview";
+import { Message } from "@/types/types";
 
 // Types
 type EmojiCategory = "recent" | "smileys" | "gestures" | "hearts" | "animals" | "food" | "activities" | "objects" | "symbols" | "flags";
@@ -301,56 +302,68 @@ captureBtn.addEventListener('mouseleave', () => {
     });
   };
 
-  const send = async () => {
-    if (isSendingMessage || (!text.trim() && !image)) return;
+  // In the send() function, change the optimistic message creation:
 
-    if (!socket || !socket.connected) {
-      console.error("Socket not connected");
-      alert("Connection lost. Please refresh the page.");
-      return;
-    }
+const send = async () => {
+  if (isSendingMessage || (!text.trim() && !image)) return;
 
-    if (!authUser) {
-      console.error("User not authenticated");
-      return;
-    }
+  if (!socket || !socket.connected) {
+    console.error("Socket not connected");
+    alert("Connection lost. Please refresh the page.");
+    return;
+  }
 
-    const payload: { text?: string; image?: string; replyTo?: string } = {};
-    if (text.trim()) payload.text = text.trim();
-    if (image) payload.image = await imageToBase64(image);
-    if (replyingTo) payload.replyTo = replyingTo._id;
+  if (!authUser) {
+    console.error("User not authenticated");
+    return;
+  }
 
-    try {
-      const optimisticMessage = {
-        _id: `temp-${Date.now()}-${Math.random()}`,
-        text: payload.text || "",
-        image: preview || null,
-        senderId: authUser,
-        receiverId: type === "group" ? undefined : receiverId,
-        groupId: type === "group" ? receiverId : undefined,
+  const payload: { text?: string; image?: string; replyTo?: string } = {};
+  if (text.trim()) payload.text = text.trim();
+  if (image) payload.image = await imageToBase64(image);
+  if (replyingTo) payload.replyTo = replyingTo._id;
+
+  try {
+    const optimisticMessage = {
+      _id: `temp-${Date.now()}-${Math.random()}`,
+      text: payload.text || "",
+      image: preview || null,
+      senderId: authUser,
+      receiverId: type === "group" ? undefined : receiverId,
+      groupId: type === "group" ? receiverId : undefined,
+      status: "sent" as const,
+      // FIX: Cast ReplyContext to Message for optimistic rendering
+      // The display component only needs _id, text, image, and senderId anyway
+      replyTo: replyingTo ? {
+        _id: replyingTo._id,
+        text: replyingTo.text || "",
+        image: replyingTo.image,
+        senderId: replyingTo.senderId,
+        // Add dummy values for required Message fields
         status: "sent" as const,
-        replyTo: replyingTo ? replyingTo._id : undefined,
         createdAt: new Date().toISOString(),
-      };
+      } as Message : undefined,
+      createdAt: new Date().toISOString(),
+    };
 
-      if (type === "group") {
-        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
-        socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
-      } else {
-        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
-        socket.emit("sendMessage", { receiverId, ...payload });
-      }
-
-      setText("");
-      setImage(null);
-      setPreview("");
-      clearReply();
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      alert("Failed to send message. Please try again.");
+    if (type === "group") {
+      useGroupStore.getState().addIncomingGroupMessage(optimisticMessage as Message);
+      socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
+    } else {
+      usePrivateChatStore.getState().addIncomingMessage(optimisticMessage as Message);
+      socket.emit("sendMessage", { receiverId, ...payload });
     }
-  };
+
+    setText("");
+    setImage(null);
+    setPreview("");
+    clearReply();
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  } catch (error) {
+    console.error("Failed to send message:", error);
+    alert("Failed to send message. Please try again.");
+  }
+};
 
   const getCategoryEmojis = (category: EmojiCategory): string[] => {
     if (category === "recent") return recentEmojis;
