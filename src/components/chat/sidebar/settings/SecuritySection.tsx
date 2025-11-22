@@ -10,11 +10,13 @@ interface PasswordChecks {
   hasLower: boolean
 }
 
+type ChangePasswordData = { currentPassword: string; newPassword: string; confirmPassword: string }
+
 interface Props {
   showChangePassword: boolean
   setShowChangePassword: (b: boolean) => void
-  changePasswordData: { currentPassword: string; newPassword: string; confirmPassword: string }
-  setChangePasswordData: (d: any) => void
+  changePasswordData: ChangePasswordData
+  setChangePasswordData: React.Dispatch<React.SetStateAction<ChangePasswordData>>
   changePasswordError: string
   setChangePasswordError: (s: string) => void
   showPasswords: { current: boolean; new: boolean; confirm: boolean }
