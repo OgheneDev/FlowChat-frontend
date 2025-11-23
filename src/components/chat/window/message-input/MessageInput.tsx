@@ -99,20 +99,20 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     setImage(file);
   };
 
-  // Direct camera access using MediaDevices API
+  // Direct camera access using MediaDevices API with modern WhatsApp-style UI
   const openCamera = async () => {
     setShowCameraOptions(false);
     
     try {
       // Check if browser supports mediaDevices API
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        // Fallback to file input with capture
         cameraInputRef.current?.click();
         return;
       }
 
       // Create a video element for camera preview
       const video = document.createElement('video');
+      video.setAttribute('playsinline', 'true');
       video.style.position = 'fixed';
       video.style.top = '0';
       video.style.left = '0';
@@ -132,104 +132,217 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       cameraContainer.style.zIndex = '999';
       cameraContainer.style.backgroundColor = '#000';
 
-      // Create capture button
+      // Create controls container at bottom
+      const controlsContainer = document.createElement('div');
+      controlsContainer.style.position = 'fixed';
+      controlsContainer.style.bottom = '0';
+      controlsContainer.style.left = '0';
+      controlsContainer.style.right = '0';
+      controlsContainer.style.height = '140px';
+      controlsContainer.style.background = 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)';
+      controlsContainer.style.display = 'flex';
+      controlsContainer.style.alignItems = 'center';
+      controlsContainer.style.justifyContent = 'center';
+      controlsContainer.style.gap = '40px';
+      controlsContainer.style.zIndex = '1001';
+
+      // Create gallery button (left) - images only
+      const galleryBtn = document.createElement('button');
+      galleryBtn.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
+      </svg>`;
+      galleryBtn.title = 'Select image from gallery';
+      galleryBtn.style.width = '56px';
+      galleryBtn.style.height = '56px';
+      galleryBtn.style.borderRadius = '50%';
+      galleryBtn.style.backgroundColor = 'rgba(255,255,255,0.15)';
+      galleryBtn.style.border = 'none';
+      galleryBtn.style.display = 'flex';
+      galleryBtn.style.alignItems = 'center';
+      galleryBtn.style.justifyContent = 'center';
+      galleryBtn.style.cursor = 'pointer';
+      galleryBtn.style.transition = 'all 0.2s ease';
+      galleryBtn.style.backdropFilter = 'blur(10px)';
+
+      // Create capture button (center) - WhatsApp style
       const captureBtn = document.createElement('button');
-      captureBtn.textContent = 'CAPTURE';
-      captureBtn.style.position = 'fixed';
-      captureBtn.style.bottom = '50px';
-      captureBtn.style.left = '50%';
-      captureBtn.style.transform = 'translateX(-50%)';
-      captureBtn.style.width = '120px';
-      captureBtn.style.height = '40px';
-      captureBtn.style.borderRadius = '20px';
-      captureBtn.style.backgroundColor = '#2c3e50';
-      captureBtn.style.border = '2px solid #34495e';
-      captureBtn.style.color = '#ecf0f1';
-      captureBtn.style.fontSize = '14px';
-      captureBtn.style.fontWeight = '600';
-      captureBtn.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-      captureBtn.style.letterSpacing = '0.5px';
-      captureBtn.style.textTransform = 'uppercase';
-      captureBtn.style.zIndex = '1001';
+      captureBtn.innerHTML = `<div style="width: 60px; height: 60px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; border: 3px solid #000;"></div>
+      </div>`;
+      captureBtn.style.width = '72px';
+      captureBtn.style.height = '72px';
+      captureBtn.style.borderRadius = '50%';
+      captureBtn.style.backgroundColor = 'transparent';
+      captureBtn.style.border = '4px solid rgba(255,255,255,0.3)';
+      captureBtn.style.display = 'flex';
+      captureBtn.style.alignItems = 'center';
+      captureBtn.style.justifyContent = 'center';
       captureBtn.style.cursor = 'pointer';
-      captureBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-      captureBtn.style.transition = 'all 0.2s ease';
+      captureBtn.style.transition = 'all 0.15s ease';
+      captureBtn.style.transform = 'scale(1)';
 
-      // Add hover effect
-      captureBtn.addEventListener('mouseenter', () => {
-        captureBtn.style.backgroundColor = '#34495e';
-        captureBtn.style.transform = 'translateX(-50%) scale(1.05)';
-      });
+      // Create flip camera button (right)
+      const flipBtn = document.createElement('button');
+      flipBtn.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </svg>`;
+      flipBtn.style.width = '56px';
+      flipBtn.style.height = '56px';
+      flipBtn.style.borderRadius = '50%';
+      flipBtn.style.backgroundColor = 'rgba(255,255,255,0.15)';
+      flipBtn.style.border = 'none';
+      flipBtn.style.display = 'flex';
+      flipBtn.style.alignItems = 'center';
+      flipBtn.style.justifyContent = 'center';
+      flipBtn.style.cursor = 'pointer';
+      flipBtn.style.transition = 'all 0.2s ease';
+      flipBtn.style.backdropFilter = 'blur(10px)';
 
-      captureBtn.addEventListener('mouseleave', () => {
-        captureBtn.style.backgroundColor = '#2c3e50';
-        captureBtn.style.transform = 'translateX(-50%) scale(1)';
-      });
-
-      // Create close button
+      // Create close button (top-left)
       const closeBtn = document.createElement('button');
-      closeBtn.innerHTML = '✕';
+      closeBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>`;
       closeBtn.style.position = 'fixed';
       closeBtn.style.top = '20px';
-      closeBtn.style.right = '20px';
-      closeBtn.style.width = '50px';
-      closeBtn.style.height = '50px';
+      closeBtn.style.left = '20px';
+      closeBtn.style.width = '48px';
+      closeBtn.style.height = '48px';
       closeBtn.style.borderRadius = '50%';
-      closeBtn.style.backgroundColor = 'rgba(255,255,255,0.2)';
+      closeBtn.style.backgroundColor = 'rgba(0,0,0,0.5)';
       closeBtn.style.border = 'none';
-      closeBtn.style.color = 'white';
-      closeBtn.style.fontSize = '20px';
-      closeBtn.style.zIndex = '1001';
+      closeBtn.style.display = 'flex';
+      closeBtn.style.alignItems = 'center';
+      closeBtn.style.justifyContent = 'center';
       closeBtn.style.cursor = 'pointer';
+      closeBtn.style.zIndex = '1001';
+      closeBtn.style.backdropFilter = 'blur(10px)';
+      closeBtn.style.transition = 'all 0.2s ease';
+
+      // Add hover effects
+      [galleryBtn, flipBtn, closeBtn].forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+          btn.style.backgroundColor = 'rgba(255,255,255,0.25)';
+          btn.style.transform = 'scale(1.05)';
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.backgroundColor = btn === closeBtn ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.15)';
+          btn.style.transform = 'scale(1)';
+        });
+      });
+
+      captureBtn.addEventListener('mouseenter', () => {
+        captureBtn.style.transform = 'scale(1.08)';
+      });
+      captureBtn.addEventListener('mouseleave', () => {
+        captureBtn.style.transform = 'scale(1)';
+      });
 
       // Create canvas for capturing image
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
       let stream: MediaStream;
+      let currentFacingMode: 'user' | 'environment' = 'environment';
+
+      const startCamera = async (facingMode: 'user' | 'environment') => {
+        try {
+          // Stop existing stream if any
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
+
+          // Request camera access
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: facingMode,
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            } 
+          });
+          
+          video.srcObject = stream;
+          await video.play();
+          currentFacingMode = facingMode;
+        } catch (err) {
+          console.error('Error starting camera:', err);
+          throw err;
+        }
+      };
 
       try {
-        // Request camera access
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment', // Prefer rear camera
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          } 
-        });
-        
-        video.srcObject = stream;
-        await video.play();
+        await startCamera('environment');
 
-        // Add elements to container
+        // Add elements to containers
         cameraContainer.appendChild(video);
-        cameraContainer.appendChild(captureBtn);
+        controlsContainer.appendChild(galleryBtn);
+        controlsContainer.appendChild(captureBtn);
+        controlsContainer.appendChild(flipBtn);
+        cameraContainer.appendChild(controlsContainer);
         cameraContainer.appendChild(closeBtn);
         document.body.appendChild(cameraContainer);
 
-        // Set canvas dimensions to match video
-        const updateCanvasSize = () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+        // Gallery button - open file picker
+        galleryBtn.onclick = () => {
+          cleanup();
+          cameraInputRef.current?.click();
         };
 
-        video.addEventListener('loadedmetadata', updateCanvasSize);
+        // Flip camera button
+        flipBtn.onclick = async () => {
+          const newMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+          
+          // Add rotation animation
+          flipBtn.style.transform = 'rotate(180deg) scale(1.05)';
+          setTimeout(() => {
+            flipBtn.style.transform = 'rotate(0deg) scale(1)';
+          }, 300);
+
+          try {
+            await startCamera(newMode);
+          } catch (err) {
+            console.error('Failed to flip camera:', err);
+          }
+        };
 
         // Capture photo
         captureBtn.onclick = () => {
           if (ctx && video.videoWidth > 0) {
+            // Flash effect
+            const flash = document.createElement('div');
+            flash.style.position = 'fixed';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100%';
+            flash.style.height = '100%';
+            flash.style.backgroundColor = 'white';
+            flash.style.zIndex = '1002';
+            flash.style.opacity = '0.8';
+            flash.style.pointerEvents = 'none';
+            cameraContainer.appendChild(flash);
+            
+            setTimeout(() => {
+              if (flash.parentNode) {
+                cameraContainer.removeChild(flash);
+              }
+            }, 150);
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
             
             canvas.toBlob((blob) => {
               if (blob) {
-                // Create file from blob
                 const file = new File([blob], `camera-${Date.now()}.jpg`, { 
                   type: 'image/jpeg' 
                 });
                 
-                // Create preview using FileReader (like old version)
                 const reader = new FileReader();
                 reader.onload = () => {
                   setPreview(reader.result as string);
@@ -237,10 +350,9 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
                 reader.readAsDataURL(blob);
                 setImage(file);
                 
-                // Cleanup
                 cleanup();
               }
-            }, 'image/jpeg', 0.9);
+            }, 'image/jpeg', 0.95);
           }
         };
 
@@ -249,15 +361,15 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
           if (stream) {
             stream.getTracks().forEach(track => track.stop());
           }
-          document.body.removeChild(cameraContainer);
-          video.removeEventListener('loadedmetadata', updateCanvasSize);
+          if (cameraContainer.parentNode) {
+            document.body.removeChild(cameraContainer);
+          }
         };
 
         closeBtn.onclick = cleanup;
 
       } catch (cameraError) {
         console.error('Camera error:', cameraError);
-        // Fallback to file input with capture
         cameraInputRef.current?.click();
         if (cameraContainer.parentNode) {
           document.body.removeChild(cameraContainer);
@@ -266,7 +378,6 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
     } catch (error) {
       console.error('Error accessing camera:', error);
-      // Final fallback to regular file input
       cameraInputRef.current?.click();
     }
   };
