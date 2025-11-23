@@ -9,14 +9,12 @@ import ReplyPreview from "./ReplyPreview";
 import { Message } from "@/types/types";
 import { emojiCategories } from "./emojis";
 
-
 type EmojiCategory = "recent" | "smileys" | "gestures" | "hearts" | "animals" | "food" | "activities" | "objects" | "symbols" | "flags";
 
 interface MessageInputProps {
   receiverId: string;
   type: "user" | "contact" | "group";
 }
-
 
 const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const [text, setText] = useState("");
@@ -68,36 +66,38 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   }, [text]);
 
+  // Handle image with better mobile support
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Clear previous file input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    setShowCameraOptions(false);
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Max 5MB");
+      return;
+    }
 
-  // Reset inputs
-  if (fileInputRef.current) fileInputRef.current.value = "";
-  if (cameraInputRef.current) cameraInputRef.current.value = "";
-  setShowCameraOptions(false);
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert("Please select an image file");
+      return;
+    }
 
-  // Basic validation
-  if (file.size > 10 * 1024 * 1024) {
-    alert("Image too large. Max 10MB");
-    return;
-  }
-
-  if (!file.type.startsWith("image/")) {
-    alert("Please select an image file");
-    return;
-  }
-
-  // Use object URL for preview (more reliable on mobile)
-  try {
-    const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      console.error("Error reading image file");
+      alert("Error loading image. Please try another image.");
+    };
+    reader.readAsDataURL(file);
     setImage(file);
-  } catch (error) {
-    console.error("Error loading image:", error);
-    alert("Cannot load this image. Try a different format (JPEG/PNG).");
-  }
-};
+  };
 
   // Direct camera access using MediaDevices API
   const openCamera = async () => {
@@ -134,37 +134,37 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
       // Create capture button
       const captureBtn = document.createElement('button');
-captureBtn.textContent = 'CAPTURE';
-captureBtn.style.position = 'fixed';
-captureBtn.style.bottom = '50px';
-captureBtn.style.left = '50%';
-captureBtn.style.transform = 'translateX(-50%)';
-captureBtn.style.width = '120px';
-captureBtn.style.height = '40px';
-captureBtn.style.borderRadius = '20px';
-captureBtn.style.backgroundColor = '#2c3e50';
-captureBtn.style.border = '2px solid #34495e';
-captureBtn.style.color = '#ecf0f1';
-captureBtn.style.fontSize = '14px';
-captureBtn.style.fontWeight = '600';
-captureBtn.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-captureBtn.style.letterSpacing = '0.5px';
-captureBtn.style.textTransform = 'uppercase';
-captureBtn.style.zIndex = '1001';
-captureBtn.style.cursor = 'pointer';
-captureBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-captureBtn.style.transition = 'all 0.2s ease';
+      captureBtn.textContent = 'CAPTURE';
+      captureBtn.style.position = 'fixed';
+      captureBtn.style.bottom = '50px';
+      captureBtn.style.left = '50%';
+      captureBtn.style.transform = 'translateX(-50%)';
+      captureBtn.style.width = '120px';
+      captureBtn.style.height = '40px';
+      captureBtn.style.borderRadius = '20px';
+      captureBtn.style.backgroundColor = '#2c3e50';
+      captureBtn.style.border = '2px solid #34495e';
+      captureBtn.style.color = '#ecf0f1';
+      captureBtn.style.fontSize = '14px';
+      captureBtn.style.fontWeight = '600';
+      captureBtn.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+      captureBtn.style.letterSpacing = '0.5px';
+      captureBtn.style.textTransform = 'uppercase';
+      captureBtn.style.zIndex = '1001';
+      captureBtn.style.cursor = 'pointer';
+      captureBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+      captureBtn.style.transition = 'all 0.2s ease';
 
-// Add hover effect
-captureBtn.addEventListener('mouseenter', () => {
-  captureBtn.style.backgroundColor = '#34495e';
-  captureBtn.style.transform = 'translateX(-50%) scale(1.05)';
-});
+      // Add hover effect
+      captureBtn.addEventListener('mouseenter', () => {
+        captureBtn.style.backgroundColor = '#34495e';
+        captureBtn.style.transform = 'translateX(-50%) scale(1.05)';
+      });
 
-captureBtn.addEventListener('mouseleave', () => {
-  captureBtn.style.backgroundColor = '#2c3e50';
-  captureBtn.style.transform = 'translateX(-50%) scale(1)';
-});
+      captureBtn.addEventListener('mouseleave', () => {
+        captureBtn.style.backgroundColor = '#2c3e50';
+        captureBtn.style.transform = 'translateX(-50%) scale(1)';
+      });
 
       // Create close button
       const closeBtn = document.createElement('button');
@@ -229,9 +229,12 @@ captureBtn.addEventListener('mouseleave', () => {
                   type: 'image/jpeg' 
                 });
                 
-                // Create preview
-                const url = URL.createObjectURL(blob);
-                setPreview(url);
+                // Create preview using FileReader (like old version)
+                const reader = new FileReader();
+                reader.onload = () => {
+                  setPreview(reader.result as string);
+                };
+                reader.readAsDataURL(blob);
                 setImage(file);
                 
                 // Cleanup
@@ -277,6 +280,7 @@ captureBtn.addEventListener('mouseleave', () => {
     textareaRef.current?.focus();
   };
 
+  // Convert image to base64 for socket transmission (from old version)
   const imageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -286,9 +290,10 @@ captureBtn.addEventListener('mouseleave', () => {
     });
   };
 
+  // Send message via Socket.IO (from old version - PROVEN WORKING)
   const send = async () => {
     if (isSendingMessage || (!text.trim() && !image)) return;
-
+    
     if (!socket || !socket.connected) {
       console.error("Socket not connected");
       alert("Connection lost. Please refresh the page.");
@@ -300,12 +305,15 @@ captureBtn.addEventListener('mouseleave', () => {
       return;
     }
 
-    const payload: { text?: string; image?: string; replyTo?: string } = {};
+    const payload: any = {};
     if (text.trim()) payload.text = text.trim();
-    if (image) payload.image = await imageToBase64(image);
+    if (image) {
+      payload.image = await imageToBase64(image);
+    }
     if (replyingTo) payload.replyTo = replyingTo._id;
 
     try {
+      // Create optimistic message for UI (using old version structure)
       const optimisticMessage = {
         _id: `temp-${Date.now()}-${Math.random()}`,
         text: payload.text || "",
@@ -314,30 +322,42 @@ captureBtn.addEventListener('mouseleave', () => {
         receiverId: type === "group" ? undefined : receiverId,
         groupId: type === "group" ? receiverId : undefined,
         status: "sent" as const,
-        replyTo: replyingTo ? {
-          _id: replyingTo._id,
-          text: replyingTo.text || "",
-          image: replyingTo.image,
-          senderId: replyingTo.senderId,
-          status: "sent" as const,
-          createdAt: new Date().toISOString(),
-        } as Message : undefined,
+        replyTo: replyingTo || null,
         createdAt: new Date().toISOString(),
-      };
+      } as any;
 
+      console.log("➕ Adding optimistic message:", optimisticMessage._id);
+
+      // Add optimistically to UI
       if (type === "group") {
-        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage as Message);
-        socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
+        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
+        console.log("📤 Emitting sendGroupMessage to server");
+        socket.emit("sendGroupMessage", {
+          groupId: receiverId,
+          ...payload,
+        });
       } else {
-        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage as Message);
-        socket.emit("sendMessage", { receiverId, ...payload });
+        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
+        console.log("📤 Emitting sendMessage to server");
+        socket.emit("sendMessage", {
+          receiverId,
+          ...payload,
+        });
       }
+      
+      console.log("✅ Message sent successfully (optimistic)");
 
+      // Clear form
       setText("");
       setImage(null);
       setPreview("");
       clearReply();
-      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+      
     } catch (error) {
       console.error("Failed to send message:", error);
       alert("Failed to send message. Please try again.");
@@ -464,7 +484,7 @@ captureBtn.addEventListener('mouseleave', () => {
                 <label className="w-full px-4 py-3 text-white text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
                   Choose from Gallery
                   <input
-                    ref={cameraInputRef}
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
@@ -473,6 +493,16 @@ captureBtn.addEventListener('mouseleave', () => {
                 </label>
               </div>
             )}
+
+            {/* Hidden camera input for fallback */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleImage}
+            />
           </div>
 
           {/* Text Input */}
