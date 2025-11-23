@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useAuthStore, usePrivateChatStore, useGroupStore } from "@/stores";
 import { useNotificationStore } from "@/stores";
 import { usePathname, useRouter } from "next/navigation";
@@ -19,6 +19,9 @@ export default function ClientLayout({
   const { getMyGroups } = useGroupStore();
   const { initializePushNotifications } = useNotificationStore();
 
+  // Track if initial data has been loaded
+  const hasInitialized = useRef(false);
+
   const authRoutes = [
     "/login",
     "/signup",
@@ -26,40 +29,12 @@ export default function ClientLayout({
     "/reset-password",
   ];
 
+  // 1. Check auth on mount only
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []); // Remove checkAuth from dependencies
 
-  // Initialize push notifications when user is authenticated
-  useEffect(() => {
-    if (authUser && !isCheckingAuth) {
-      console.log('🔄 [CLIENT LAYOUT] Calling initializePushNotifications...');
-      initializePushNotifications();
-    }
-  }, [authUser, isCheckingAuth, initializePushNotifications]);
-
-  // Load chats and groups (unread counts now included in API response)
-  useEffect(() => {
-    if (authUser && !isCheckingAuth) {
-      const loadData = async () => {
-        try {
-          console.log('📬 Loading chats and groups...');
-          // ✅ Chats and groups now include unread counts from backend
-          // No separate fetch needed!
-          await Promise.all([
-            getChatPartners(),
-            getMyGroups()
-          ]);
-          console.log('📬 Chats and groups loaded with unread counts!');
-        } catch (error) {
-          console.error('Error loading initial data:', error);
-        }
-      };
-      
-      loadData();
-    }
-  }, [authUser, isCheckingAuth, getChatPartners, getMyGroups]);
-
+  // 2. Handle routing based on auth state
   useEffect(() => {
     if (!isCheckingAuth) {
       if (!authUser && !authRoutes.includes(pathname)) {
@@ -68,7 +43,36 @@ export default function ClientLayout({
         router.replace("/chat");
       }
     }
-  }, [authUser, isCheckingAuth, pathname, router]);
+  }, [authUser, isCheckingAuth, pathname]); // Only auth state, not router
+
+  // 3. Initialize push notifications and load data once
+  useEffect(() => {
+    if (authUser && !isCheckingAuth && !hasInitialized.current) {
+      hasInitialized.current = true;
+      
+      const initializeApp = async () => {
+        try {
+          console.log('🔄 [CLIENT LAYOUT] Initializing app...');
+          
+          // Initialize push notifications
+          initializePushNotifications();
+          
+          // Load chats and groups
+          await Promise.all([
+            getChatPartners(),
+            getMyGroups()
+          ]);
+          
+          console.log('✅ App initialized successfully!');
+        } catch (error) {
+          console.error('❌ Error initializing app:', error);
+          hasInitialized.current = false; // Allow retry on error
+        }
+      };
+      
+      initializeApp();
+    }
+  }, [authUser, isCheckingAuth]); // Remove function dependencies
 
   if (isCheckingAuth) {
     return <Loader />;
