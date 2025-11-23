@@ -62,7 +62,7 @@ export class ErrorBoundary extends React.Component<
                 Something went wrong. Please try refreshing the page.
               </p>
               
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {this.state.error && (
                 <details className="mt-4 text-left">
                   <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
                     Error Details (Development Only)
