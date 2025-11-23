@@ -588,11 +588,11 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
               <div className="absolute bottom-12 left-0 bg-[#1e1e1e] border border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden z-500 min-w-40 sm:min-w-48">
                 <button
                   onClick={openCamera}
-                  className="w-full px-4 py-3 text-white text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
+                  className="w-full px-4 py-3 text-white text-[10px] md:text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
                 >
                   Take Photo
                 </button>
-                <label className="w-full px-4 py-3 text-white text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
+                <label className="w-full px-4 py-3 text-white text-[10px] md:text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
                   Choose from Gallery
                   <input
                     ref={fileInputRef}
