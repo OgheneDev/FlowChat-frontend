@@ -249,7 +249,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
         onClose={() => setBulkForwardModal({ isOpen: false, messages: [] })}
       />
 
-      <DeleteModalWrapper
+      <DeleteModalWrapper 
         modal={deleteModal}
         isOwn={isFirstSelectedOwn()}
         onDelete={handleDeleteSelected}

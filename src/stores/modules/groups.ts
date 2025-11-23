@@ -418,26 +418,54 @@ export const useGroupStore = create<GroupState>((set, get) => {
     },
 
     markGroupMessagesAsSeen: async (groupId: string) => {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("👁️ [GROUP STORE] markGroupMessagesAsSeen called");
+      console.log("👁️ [GROUP STORE] groupId:", groupId);
+      
       try {
         const { groupMessages } = get();
         const currentUserId = useAuthStore.getState().authUser?._id;
+        
+        console.log("👁️ [GROUP STORE] Current User ID:", currentUserId);
+        console.log("👁️ [GROUP STORE] Total messages in store:", groupMessages.length);
+        
         const unread = groupMessages.filter(m =>
           !isGroupEventMessage(m) &&
           (typeof m.senderId === "string" ? m.senderId : m.senderId?._id) !== currentUserId &&
           m.status !== 'seen'
         );
-        if (unread.length === 0) return;
-
+        
+        console.log("👁️ [GROUP STORE] Unread messages count:", unread.length);
+        
+        // ALWAYS clear locally first for instant UI feedback
+        console.log("👁️ [GROUP STORE] Clearing unread count locally");
         get().clearUnreadCount(groupId);
+        
+        // Update local message status
         get().updateMultipleMessageStatus(unread.map(m => m._id), 'seen');
+        
+        // Update the group object
         set((state) => ({
-          groups: state.groups.map(g => g._id === groupId ? { ...g, unreadCount: 0 } : g)
+          groups: state.groups.map(g => 
+            g._id === groupId ? { ...g, unreadCount: 0 } : g
+          )
         }));
 
+        // Emit socket event to backend (backend will broadcast the update)
         const socket = useAuthStore.getState().socket;
-        if (socket) socket.emit("markGroupMessagesAsSeen", { groupId });
+        console.log("👁️ [GROUP STORE] Socket connected:", socket?.connected);
+        
+        if (socket?.connected) {
+          console.log("👁️ [GROUP STORE] Emitting markGroupMessagesAsSeen to backend");
+          socket.emit("markGroupMessagesAsSeen", { groupId });
+        } else {
+          console.warn("👁️ [GROUP STORE] ⚠️ Socket not connected!");
+        }
+        
+        console.log("👁️ [GROUP STORE] After markGroupMessagesAsSeen - unreadCounts:", get().unreadCounts);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       } catch (error) {
-        console.error('Error marking messages as seen:', error);
+        console.error('👁️ [GROUP STORE] Error marking messages as seen:', error);
       }
     },
 
