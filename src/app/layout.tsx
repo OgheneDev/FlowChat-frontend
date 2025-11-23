@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/layout/ClientLayout";
 import { ToastContainer } from "@/components/ui/ToastContainer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const poppins = Poppins({ subsets: ["latin"], weight: "400" });
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={poppins.className}>
-        <ClientLayout>
+        <ErrorBoundary>
+           <ClientLayout>
           {children}
           <ToastContainer />
         </ClientLayout>
+        </ErrorBoundary>
       </body>
     </html>
   );
