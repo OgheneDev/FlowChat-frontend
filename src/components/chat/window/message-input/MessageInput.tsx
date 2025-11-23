@@ -1,39 +1,22 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, X, ImageIcon, Smile, Camera, Search } from "lucide-react";
+import { Send, X, ImageIcon, Smile } from "lucide-react";
 import { usePrivateChatStore, useGroupStore, useUIStore } from "@/stores";
 import { useAuthStore } from "@/stores";
 import Image from "next/image";
 import ReplyPreview from "./ReplyPreview";
 import { Message } from "@/types/types";
+import { emojiCategories } from "./emojis";
 
-// Types
+
 type EmojiCategory = "recent" | "smileys" | "gestures" | "hearts" | "animals" | "food" | "activities" | "objects" | "symbols" | "flags";
-
-interface EmojiCategoryData {
-  icon: string;
-  name: string;
-  emojis: string[];
-}
 
 interface MessageInputProps {
   receiverId: string;
   type: "user" | "contact" | "group";
 }
 
-const emojiCategories: Record<EmojiCategory, EmojiCategoryData> = {
-  recent: { icon: "🕐", name: "Recent", emojis: [] },
-  smileys: { icon: "😀", name: "Smileys", emojis: ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "🥸", "😎", "🤓", "🧐"] },
-  gestures: { icon: "👋", name: "Gestures", emojis: ["👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤌", "🤏", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "🖕", "👇", "☝️", "👍", "👎", "✊", "👊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🦾", "🦿", "🦵", "🦶", "👂", "🦻", "👃", "🧠", "🫀", "🫁", "🦷", "🦴", "👀", "👁️", "👅", "👄"] },
-  hearts: { icon: "❤️", name: "Hearts", emojis: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️", "💌", "💋", "💑", "💏"] },
-  animals: { icon: "🐶", name: "Animals", emojis: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐻‍❄️", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆", "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝", "🪱", "🐛", "🦋", "🐌", "🐞", "🐜", "🪰", "🪲", "🪳", "🦟", "🦗", "🕷️", "🦂", "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑"] },
-  food: { icon: "🍔", name: "Food", emojis: ["🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝", "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶️", "🫑", "🌽", "🥕", "🫒", "🧄", "🧅", "🥔", "🍠", "🥐", "🥯", "🍞", "🥖", "🥨", "🧀", "🥚", "🍳", "🧈", "🥞", "🧇", "🥓", "🥩", "🍗", "🍖", "🦴", "🌭", "🍔", "🍟", "🍕", "🫓", "🥪", "🥙", "🧆", "🌮", "🌯", "🫔", "🥗", "🥘", "🫕", "🥫", "🍝"] },
-  activities: { icon: "⚽", name: "Activities", emojis: ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽", "🛹", "🛼", "🛷", "⛸️", "🥌", "🎿", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸", "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏄", "🏊", "🤽", "🚣", "🧗", "🚵", "🚴", "🏆", "🥇", "🥈", "🥉", "🏅", "🎖️", "🏵️", "🎗️", "🎫", "🎟️", "🎪"] },
-  objects: { icon: "💡", name: "Objects", emojis: ["⌚", "📱", "📲", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "🖲️", "🕹️", "🗜️", "💽", "💾", "💿", "📀", "📼", "📷", "📸", "📹", "🎥", "📽️", "🎞️", "📞", "☎️", "📟", "📠", "📺", "📻", "🎙️", "🎚️", "🎛️", "🧭", "⏱️", "⏲️", "⏰", "🕰️", "⌛", "⏳", "📡", "🔋", "🔌", "💡", "🔦", "🕯️", "🪔", "🧯", "🛢️", "💸", "💵", "💴", "💶", "💷", "🪙", "💰", "💳", "💎", "⚖️", "🪜", "🧰", "🪛", "🔧", "🔨"] },
-  symbols: { icon: "💯", name: "Symbols", emojis: ["💯", "💢", "♨️", "🚫", "❗", "❕", "❓", "❔", "‼️", "⁉️", "⚠️", "🚸", "🔱", "⚜️", "🔰", "♻️", "✅", "❇️", "✳️", "❎", "💠", "🌀", "💤", "🎵", "🎶", "➕", "➖", "➗", "✖️", "♾️", "💲", "💱", "™️", "©️", "®️", "〰️", "➰", "➿", "✔️", "☑️", "🔘", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤", "🔺", "🔻", "🔸", "🔹", "🔶", "🔷", "🔳", "🔲", "▪️", "▫️", "◾", "◽", "◼️", "◻️"] },
-  flags: { icon: "🏳️", name: "Flags", emojis: ["🏳️", "🏴", "🏁", "🚩", "🏳️‍🌈", "🏳️‍⚧️", "🏴‍☠️", "🇦🇫", "🇦🇱", "🇩🇿", "🇦🇸", "🇦🇩", "🇦🇴", "🇦🇮", "🇦🇶", "🇦🇬", "🇦🇷", "🇦🇲", "🇦🇼", "🇦🇺", "🇦🇹", "🇦🇿", "🇧🇸", "🇧🇭", "🇧🇩", "🇧🇧", "🇧🇾", "🇧🇪", "🇧🇿", "🇧🇯", "🇧🇲", "🇧🇹", "🇧🇴", "🇧🇦", "🇧🇼", "🇧🇷", "🇮🇴", "🇻🇸", "🇧🇳", "🇧🇬", "🇧🇫", "🇧🇮", "🇰🇭", "🇨🇲", "🇨🇦", "🇮🇨", "🇨🇻", "🇧🇶", "🇰🇾", "🇨🇫", "🇹🇩", "🇨🇱", "🇨🇳", "🇨🇽", "🇨🇨", "🇨🇴", "🇰🇲", "🇨🇬", "🇨🇩", "🇨🇰", "🇨🇷", "🇨🇮", "🇭🇷"] }
-};
 
 const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const [text, setText] = useState("");
@@ -86,34 +69,35 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   }, [text]);
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
-    setShowCameraOptions(false);
+  // Reset inputs
+  if (fileInputRef.current) fileInputRef.current.value = "";
+  if (cameraInputRef.current) cameraInputRef.current.value = "";
+  setShowCameraOptions(false);
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Max 5MB");
-      return;
-    }
+  // Basic validation
+  if (file.size > 10 * 1024 * 1024) {
+    alert("Image too large. Max 10MB");
+    return;
+  }
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file");
-      return;
-    }
+  if (!file.type.startsWith("image/")) {
+    alert("Please select an image file");
+    return;
+  }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") setPreview(reader.result);
-    };
-    reader.onerror = () => {
-      console.error("Error reading image file");
-      alert("Error loading image. Please try another image.");
-    };
-    reader.readAsDataURL(file);
+  // Use object URL for preview (more reliable on mobile)
+  try {
+    const objectUrl = URL.createObjectURL(file);
+    setPreview(objectUrl);
     setImage(file);
-  };
+  } catch (error) {
+    console.error("Error loading image:", error);
+    alert("Cannot load this image. Try a different format (JPEG/PNG).");
+  }
+};
 
   // Direct camera access using MediaDevices API
   const openCamera = async () => {
