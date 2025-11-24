@@ -128,15 +128,32 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
 
   // Handle scroll to message
   useEffect(() => {
-    if (scrollToMessageId && messageListRef.current) {
-      const timer = setTimeout(() => {
-        messageListRef.current?.scrollToMessage(scrollToMessageId);
+  if (scrollToMessageId && messageListRef.current && messages.length > 0) {
+    // Check if the message exists in the current messages
+    const messageExists = messages.some((m: any) => m._id === scrollToMessageId);
+    
+    if (messageExists) {
+      // Try scrolling multiple times with increasing delays to ensure DOM is ready
+      const attempts = [300, 600, 1000]; // Try at 300ms, 600ms, and 1000ms
+      
+      attempts.forEach((delay) => {
+        setTimeout(() => {
+          if (messageListRef.current && scrollToMessageId) {
+            messageListRef.current.scrollToMessage(scrollToMessageId);
+          }
+        }, delay);
+      });
+      
+      // Clear the scroll target after all attempts
+      setTimeout(() => {
         setScrollToMessageId(null);
-      }, 500);
-
-      return () => clearTimeout(timer);
+      }, 1200);
+    } else {
+      // Message not found yet, wait for messages to load
+      console.log('Message not found yet, waiting for load...');
     }
-  }, [scrollToMessageId, setScrollToMessageId, messages]);
+  }
+}, [scrollToMessageId, setScrollToMessageId, messages.length]);
 
   // Load messages and pinned messages when selectedUser changes
   useEffect(() => {

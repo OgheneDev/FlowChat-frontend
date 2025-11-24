@@ -70,17 +70,48 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }, []);
 
     const scrollToMessage = useCallback((messageId: string) => {
-      const messageElement = messageRefs.current.get(messageId);
-      if (messageElement) {
-        messageElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
+  console.log('Attempting to scroll to message:', messageId);
+  console.log('Available message refs:', Array.from(messageRefs.current.keys()));
+  
+  const messageElement = messageRefs.current.get(messageId);
+  
+  if (messageElement) {
+    console.log('Message element found, scrolling...');
+    
+    // Use a more reliable scrolling approach
+    setTimeout(() => {
+      messageElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center',
+        inline: 'nearest'
+      });
+      
+      // Highlight after scroll completes
+      setTimeout(() => {
         highlightMessage(messageId);
+      }, 300);
+    }, 100);
+  } else {
+    console.warn('Message element not found in refs:', messageId);
+    console.log('Total messages rendered:', messages.length);
+    
+    // Retry after a short delay in case the element isn't rendered yet
+    setTimeout(() => {
+      const retryElement = messageRefs.current.get(messageId);
+      if (retryElement) {
+        console.log('Retry successful, scrolling now...');
+        retryElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'nearest'
+        });
+        setTimeout(() => highlightMessage(messageId), 300);
       } else {
-        console.warn('Message element not found:', messageId);
+        console.error('Message still not found after retry:', messageId);
       }
-    }, [highlightMessage]);
+    }, 500);
+  }
+}, [highlightMessage, messages.length]);
 
     // Listen for scrollToMessage events from PinnedMessagePreview
     useEffect(() => {
