@@ -66,6 +66,16 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
     const senderId = message.senderId?._id;
     const isOwn = senderId === authUser?._id;
+
+    // Determine if an image message is still pending (optimistic)
+    const isPendingImage = Boolean(
+      message.image &&
+      (
+        (typeof message._id === "string" && message._id.startsWith("temp-")) ||
+        (isOwn && message.status === "sent")
+      )
+    );
+
     let senderFullName: string | null = null;
 
     if (!isOwn && typeof message.senderId === "object") {
@@ -421,8 +431,18 @@ const sendForwardedMessage = async (
               onContextMenu={(e:any) => showContextMenu(e, message)}
             >
               {message.image && (
-                <MessageMedia src={message.image} onClick={handleImageClick} />
+                <div className="relative">
+                  <MessageMedia src={message.image} onClick={handleImageClick} />
+                  {isPendingImage && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
+
               {message.text && !isEditing && (
                 <p className={`px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${isOwn ? "text-white font-medium" : "text-gray-100"}`}>
                   {message.text}
