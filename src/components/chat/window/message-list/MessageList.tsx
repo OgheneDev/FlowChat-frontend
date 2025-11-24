@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState, useCallback } from "react";
-import { usePrivateChatStore, useGroupStore } from "@/stores";
+import { usePrivateChatStore, useGroupStore, useUIStore } from "@/stores";
 import { useAuthStore } from "@/stores";
 import MessageItem from "../message-item/MessageItem";
 import MessageSkeleton from "./MessageSkeleton"; 
@@ -35,6 +33,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     } = useGroupStore();
     
     const { authUser } = useAuthStore() as { authUser: { _id: string } | null };
+    const { scrollToMessageId } = useUIStore(); // Get scrollToMessageId from store
     
     const messages = type === "group" ? groupMessages : privateMessages;
     const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
@@ -43,6 +42,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
     const highlightedMessageRef = useRef<string | null>(null); 
+    const prevMessagesLengthRef = useRef<number>(0); // Track previous message count
     
     const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
     const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -70,48 +70,45 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
     }, []);
 
     const scrollToMessage = useCallback((messageId: string) => {
-  console.log('Attempting to scroll to message:', messageId);
-  console.log('Available message refs:', Array.from(messageRefs.current.keys()));
-  
-  const messageElement = messageRefs.current.get(messageId);
-  
-  if (messageElement) {
-    console.log('Message element found, scrolling...');
-    
-    // Use a more reliable scrolling approach
-    setTimeout(() => {
-      messageElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center',
-        inline: 'nearest'
-      });
+      console.log('Attempting to scroll to message:', messageId);
+      console.log('Available message refs:', Array.from(messageRefs.current.keys()));
       
-      // Highlight after scroll completes
-      setTimeout(() => {
-        highlightMessage(messageId);
-      }, 300);
-    }, 100);
-  } else {
-    console.warn('Message element not found in refs:', messageId);
-    console.log('Total messages rendered:', messages.length);
-    
-    // Retry after a short delay in case the element isn't rendered yet
-    setTimeout(() => {
-      const retryElement = messageRefs.current.get(messageId);
-      if (retryElement) {
-        console.log('Retry successful, scrolling now...');
-        retryElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'nearest'
-        });
-        setTimeout(() => highlightMessage(messageId), 300);
+      const messageElement = messageRefs.current.get(messageId);
+      
+      if (messageElement) {
+        console.log('Message element found, scrolling...');
+        
+        setTimeout(() => {
+          messageElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+          
+          setTimeout(() => {
+            highlightMessage(messageId);
+          }, 300);
+        }, 100);
       } else {
-        console.error('Message still not found after retry:', messageId);
+        console.warn('Message element not found in refs:', messageId);
+        console.log('Total messages rendered:', messages.length);
+        
+        setTimeout(() => {
+          const retryElement = messageRefs.current.get(messageId);
+          if (retryElement) {
+            console.log('Retry successful, scrolling now...');
+            retryElement.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+            setTimeout(() => highlightMessage(messageId), 300);
+          } else {
+            console.error('Message still not found after retry:', messageId);
+          }
+        }, 500);
       }
-    }, 500);
-  }
-}, [highlightMessage, messages.length]);
+    }, [highlightMessage, messages.length]);
 
     // Listen for scrollToMessage events from PinnedMessagePreview
     useEffect(() => {
@@ -166,12 +163,26 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       }
     };
 
+    // ✅ FIXED: Conditional auto-scroll to bottom - only when NOT navigating to a specific message
     useEffect(() => {
-      const timer = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      }, 100);
-      return () => clearTimeout(timer);
-    }, [messages]);
+      // Don't auto-scroll if we're trying to navigate to a specific message
+      if (scrollToMessageId) {
+        console.log('Skipping auto-scroll - navigating to specific message:', scrollToMessageId);
+        return;
+      }
+
+      // Only auto-scroll when new messages are added (not on initial load)
+      const isNewMessage = messages.length > prevMessagesLengthRef.current;
+      prevMessagesLengthRef.current = messages.length;
+
+      if (isNewMessage && messages.length > 0) {
+        console.log('Auto-scrolling to bottom - new message detected');
+        const timer = setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 100);
+        return () => clearTimeout(timer);
+      }
+    }, [messages.length, scrollToMessageId]); // Added scrollToMessageId as dependency
 
     useEffect(() => {
       if (selectedMessages.size > 0 && !isSelectionMode) {
