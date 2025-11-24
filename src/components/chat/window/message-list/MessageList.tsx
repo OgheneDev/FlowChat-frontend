@@ -7,7 +7,7 @@ import MessageItem from "../message-item/MessageItem";
 import MessageSkeleton from "./MessageSkeleton"; 
 import GroupEventMessage from "./GroupEventMessage";
 
-interface MessageListProps {
+interface MessageListProps { 
   isLoading: boolean;
   type: "user" | "contact" | "group";
   selectedUser?: any;

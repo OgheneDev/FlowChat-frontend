@@ -1,4 +1,3 @@
-// In your TabContent component
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -58,16 +57,17 @@ export const TabContent: React.FC<TabContentProps> = ({
   filteredContacts,
   filteredGroups,
 }) => {
-  const { loadStarredData, isLoading: isStarredLoading } = useStarringStore();
+  // Use the correct function name from the store
+  const { loadSidebarStarredData, sidebarLoading } = useStarringStore();
   const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
 
-  // Load starred data when component mounts
+  // Load sidebar starred data when component mounts
   useEffect(() => {
-    loadStarredData();
-  }, [loadStarredData]);
+    loadSidebarStarredData();
+  }, [loadSidebarStarredData]);
 
-  // Show loading state if either chats are loading OR starred data is loading
-  if (isLoading || isStarredLoading) {
+  // Show loading state if either chats are loading OR sidebar starred data is loading
+  if (isLoading || sidebarLoading) {
     return (
       <div className="p-2 space-y-1">
         {[...Array(6)].map((_, i) => (
@@ -133,21 +133,21 @@ export const TabContent: React.FC<TabContentProps> = ({
       />
 
       {activeTab === "groups" && (
-  <>
-    <button
-      onClick={() => setIsCreateGroupModalOpen(true)}
-      className="fixed bottom-6 right-6 md:hidden bg-[#00d9ff] text-black p-4 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors cursor-pointer z-10"
-      aria-label="Create new group"
-    >
-      <Plus className="w-6 h-6" />
-    </button>
-    
-    <CreateGroupModal 
-      isOpen={isCreateGroupModalOpen}
-      onClose={() => setIsCreateGroupModalOpen(false)}
-    />
-  </>
-)}
+        <>
+          <button
+            onClick={() => setIsCreateGroupModalOpen(true)}
+            className="fixed bottom-6 right-6 md:hidden bg-[#00d9ff] text-black p-4 rounded-full shadow-lg hover:bg-[#00c4e6] transition-colors cursor-pointer z-10"
+            aria-label="Create new group"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
+          
+          <CreateGroupModal 
+            isOpen={isCreateGroupModalOpen}
+            onClose={() => setIsCreateGroupModalOpen(false)}
+          />
+        </>
+      )}
     </>
   );
 };

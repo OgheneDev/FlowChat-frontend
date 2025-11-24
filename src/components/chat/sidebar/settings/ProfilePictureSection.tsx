@@ -9,7 +9,7 @@ interface Props {
   fileInputRef: React.RefObject<HTMLInputElement | null>
   isUpdating?: boolean
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void
-  getProfilePic: () => string | null | undefined
+  getProfilePic: () => string | null | undefined 
 }
 
 const ProfilePictureSection: React.FC<Props> = ({ 

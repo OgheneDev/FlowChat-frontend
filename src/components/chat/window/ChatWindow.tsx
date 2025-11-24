@@ -25,7 +25,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
     initializeSocketListeners, 
     cleanupSocketListeners,
     markMessagesAsSeen,
-    clearUnreadCount: clearPrivateUnreadCount
+    clearUnreadCount: clearPrivateUnreadCount 
   } = usePrivateChatStore();
   const { 
     groupMessages, 

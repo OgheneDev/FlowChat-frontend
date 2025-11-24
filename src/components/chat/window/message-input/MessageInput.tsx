@@ -164,7 +164,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       galleryBtn.style.justifyContent = 'center';
       galleryBtn.style.cursor = 'pointer';
       galleryBtn.style.transition = 'all 0.2s ease';
-      galleryBtn.style.backdropFilter = 'blur(10px)';
+      galleryBtn.style.backdropFilter = 'blur(12px)';
 
       // Create capture button (center) - WhatsApp style
       const captureBtn = document.createElement('button');
@@ -201,7 +201,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       flipBtn.style.justifyContent = 'center';
       flipBtn.style.cursor = 'pointer';
       flipBtn.style.transition = 'all 0.2s ease';
-      flipBtn.style.backdropFilter = 'blur(10px)';
+      flipBtn.style.backdropFilter = 'blur(12px)';
 
       // Create close button (top-left)
       const closeBtn = document.createElement('button');
@@ -222,7 +222,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       closeBtn.style.justifyContent = 'center';
       closeBtn.style.cursor = 'pointer';
       closeBtn.style.zIndex = '1001';
-      closeBtn.style.backdropFilter = 'blur(10px)';
+      closeBtn.style.backdropFilter = 'blur(12px)';
       closeBtn.style.transition = 'all 0.2s ease';
 
       // Add hover effects
@@ -588,11 +588,11 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
               <div className="absolute bottom-12 left-0 bg-[#1e1e1e] border border-[#3a3a3a] rounded-xl shadow-2xl overflow-hidden z-500 min-w-40 sm:min-w-48">
                 <button
                   onClick={openCamera}
-                  className="w-full px-4 py-3 text-white text-[10px] md:text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
+                  className="w-full px-4 py-3 text-white text-[12px] md:text-sm cursor-pointer hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3"
                 >
                   Take Photo
                 </button>
-                <label className="w-full px-4 py-3 text-white text-[10px] md:text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
+                <label className="w-full px-4 py-3 text-white text-[12px] md:text-sm hover:bg-[#00d9ff]/10 transition-colors flex items-center gap-3 cursor-pointer">
                   Choose from Gallery
                   <input
                     ref={fileInputRef}

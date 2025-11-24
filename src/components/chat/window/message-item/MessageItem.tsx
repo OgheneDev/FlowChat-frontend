@@ -482,7 +482,7 @@ const sendForwardedMessage = async (
           />
         )}
 
-        {deleteModal && (
+        {deleteModal && ( 
           <DeleteModal
             message={deleteModal.message}
             deleteType={deleteModal.deleteType}

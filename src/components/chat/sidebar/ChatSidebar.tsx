@@ -14,6 +14,7 @@ import { TabContent } from './TabContent';
 import ConfirmModal from './ConfirmModal';
 import CreateGroupModal from './CreateGroupModal';
 import SettingsModal from './SettingsModal';
+import StarredMessagesModal from './StarredMessagesModal';
 
 interface AuthUser {
   profilePic?: string;
@@ -34,6 +35,7 @@ const ChatSidebar = () => {
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [isStarredModalOpen, setIsStarredModalOpen] = useState(false);
 
   // UI Store
   const { activeTab, setActiveTab, setSelectedUser } = useUIStore();
@@ -53,6 +55,13 @@ const ChatSidebar = () => {
   // Toast Store
   const { showToast } = useToastStore();
 
+  // Starring Store - Only use sidebar-related state
+  const { 
+    starredChats, 
+    loadStarredMessagesForModal,
+    clearModalData
+  } = useStarringStore();
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchDropdownRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -62,12 +71,6 @@ const ChatSidebar = () => {
     { id: 'contacts', label: 'Contacts', icon: <User className="w-4 h-4" /> },
     { id: 'groups', label: 'Groups', icon: <Users className="w-4 h-4" /> },
   ];
-
-  const { starredChats } = useStarringStore();
-
-  useEffect(() => {
-    // This will trigger a re-render and re-sort when starredChats changes
-  }, [starredChats]);
 
   useEffect(() => {
     if (authUser) {
@@ -106,7 +109,7 @@ const ChatSidebar = () => {
           console.error('Search error:', error);
           showToast('Failed to search', 'error');
         } finally {
-          setIsSearching(false);
+          setIsSearching(false); 
         }
       }, 300);
     } else {
@@ -122,18 +125,21 @@ const ChatSidebar = () => {
     };
   }, [searchQuery]);
 
+  useEffect(() => {
+  // Preload starred messages data when component mounts
+  loadStarredMessagesForModal();
+}, [loadStarredMessagesForModal]);
+
+
   const handleTabChange = (tab: Tab) => {
-  setActiveTab(tab);
-  // Close chat window when switching to any tab except the current chat's type
-  if ((activeTab === 'groups' && tab !== 'groups') || 
-      (activeTab === 'chats' && tab !== 'chats')) {
-    setSelectedUser(null);
-  }
-};
+    setActiveTab(tab);
+    if ((activeTab === 'groups' && tab !== 'groups') || 
+        (activeTab === 'chats' && tab !== 'chats')) {
+      setSelectedUser(null);
+    }
+  };
 
   const sortByLastMessage = (items: any[], type: 'chats' | 'contacts' | 'groups') => {
-    const { starredChats } = useStarringStore.getState();
-    
     return items.sort((a, b) => {
       const aIsStarred = starredChats.includes(a._id);
       const bIsStarred = starredChats.includes(b._id);
@@ -210,7 +216,6 @@ const ChatSidebar = () => {
 
   const handleUserClick = async (user: any) => {
     try {
-      // If user object is incomplete, fetch full details
       if (!user.fullName || !user.email) {
         const response = await axiosInstance.get(`/users/${user._id}`);
         const fullUser = response.data;
@@ -223,7 +228,6 @@ const ChatSidebar = () => {
       setShowSearchDropdown(false);
     } catch (error) {
       console.error('Error fetching user details:', error);
-      // Fallback: use whatever data we have
       setSelectedUser({ ...user, chatPartnerId: user._id });
       setActiveTab('chats');
       setSearchQuery('');
@@ -233,7 +237,6 @@ const ChatSidebar = () => {
 
   const handleGroupClick = async (group: any) => {
     try {
-      // If group object is incomplete, fetch full details
       if (!group.members || group.members.length === 0) {
         const response = await axiosInstance.get(`/groups/${group._id}`);
         const fullGroup = response.data;
@@ -246,7 +249,6 @@ const ChatSidebar = () => {
       setShowSearchDropdown(false);
     } catch (error) {
       console.error('Error fetching group details:', error);
-      // Fallback: use whatever data we have
       setSelectedUser({ ...group, groupId: group._id, isGroup: true });
       setActiveTab('groups');
       setSearchQuery('');
@@ -255,30 +257,28 @@ const ChatSidebar = () => {
   };
 
   const handleMessageClick = (message: any) => {
-  const { setScrollToMessageId } = useUIStore.getState();
-  
-  if (message.groupId) {
-    handleGroupClick(message.groupId);
-    // Set the message ID to scroll to after opening chat
-    setScrollToMessageId(message._id);
-  } else {
-    let otherUser;
+    const { setScrollToMessageId } = useUIStore.getState();
     
-    if (message.senderId?._id === authUser?._id) {
-      otherUser = message.receiverId?._id ? message.receiverId : { _id: message.receiverId };
-    } else {
-      otherUser = message.senderId;
-    }
-    
-    if (otherUser && (otherUser._id || otherUser)) {
-      handleUserClick(typeof otherUser === 'string' ? { _id: otherUser } : otherUser);
-      // Set the message ID to scroll to after opening chat
+    if (message.groupId) {
+      handleGroupClick(message.groupId);
       setScrollToMessageId(message._id);
     } else {
-      showToast('Unable to open chat', 'error');
+      let otherUser;
+      
+      if (message.senderId?._id === authUser?._id) {
+        otherUser = message.receiverId?._id ? message.receiverId : { _id: message.receiverId };
+      } else {
+        otherUser = message.senderId;
+      }
+      
+      if (otherUser && (otherUser._id || otherUser)) {
+        handleUserClick(typeof otherUser === 'string' ? { _id: otherUser } : otherUser);
+        setScrollToMessageId(message._id);
+      } else {
+        showToast('Unable to open chat', 'error');
+      }
     }
-  }
-};
+  };
 
   const isLoading = isContactsLoading || isChatsLoading || isGroupsLoading;
 
@@ -287,6 +287,55 @@ const ChatSidebar = () => {
     searchResults.groups.length > 0 || 
     searchResults.messages.length > 0
   );
+
+  const openStarredModal = () => {
+  // Refresh data when opening modal
+  loadStarredMessagesForModal();
+  setIsStarredModalOpen(true);
+};
+
+  const handleCloseStarredModal = () => {
+    setIsStarredModalOpen(false);
+    // Clear modal data when closing to ensure fresh data next time
+    setTimeout(() => clearModalData(), 300);
+  };
+  
+  const handleStarredSelect = (msg: any) => {
+  const { setSelectedUser, setActiveTab, setScrollToMessageId } = useUIStore.getState();
+  
+  // Close the modal first
+  handleCloseStarredModal();
+  
+  // Determine chat context
+  if (msg.groupId) {
+    // Group message
+    setActiveTab('groups');
+    setSelectedUser({ 
+      _id: msg.groupId._id, 
+      groupId: msg.groupId._id, 
+      isGroup: true,
+      name: msg.groupId.name
+    });
+  } else if (msg.chatPartnerId) {
+    // Private message - use the pre-calculated chat partner
+    setActiveTab('chats');
+    setSelectedUser({ 
+      _id: msg.chatPartnerId._id, 
+      chatPartnerId: msg.chatPartnerId._id,
+      fullName: msg.chatPartnerId.fullName,
+      profilePic: msg.chatPartnerId.profilePic
+    });
+  } else {
+    showToast('Cannot determine chat context', 'error');
+    return;
+  }
+  
+  // Set scroll target AFTER a delay to ensure messages are loaded
+  // This delay allows the ChatWindow to mount and fetch messages first
+  setTimeout(() => {
+    setScrollToMessageId(msg._id);
+  }, 800); // Increased delay to ensure messages are fully loaded
+};
 
   return (
     <div className="bg-[#121212] md:w-96 text-[#ffffff] h-screen flex flex-col overflow-hidden">
@@ -297,6 +346,7 @@ const ChatSidebar = () => {
         fileInputRef={fileInputRef}
         getprofilePic={getprofilePic}
         onImageChange={handleImageUpload}
+        onOpenStarred={openStarredModal}
         onOpenSettings={handleOpenSettingsModal}
         onLogout={handleLogout}
         onCreateGroup={handleOpenCreateGroupModal}
@@ -349,6 +399,12 @@ const ChatSidebar = () => {
       <SettingsModal 
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+      />
+
+      <StarredMessagesModal
+        isOpen={isStarredModalOpen}
+        onClose={handleCloseStarredModal}
+        onSelectMessage={handleStarredSelect}
       />
     </div>
   );
