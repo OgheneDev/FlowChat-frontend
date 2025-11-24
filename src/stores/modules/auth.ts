@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { axiosInstance } from "@/api/axios";
+import { axiosInstance, tokenStorage } from "@/api/axios";
 import { io, Socket } from "socket.io-client";
 import { useNotificationStore } from "./notifications";
 import { usePrivateChatStore } from "./privateChats";
@@ -125,6 +125,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const response = await axiosInstance.get("/auth/check");
       console.log("✅ Auth check successful:", response.data?.email);
       
+      // Store token if returned (for iOS Safari)
+      if (response.data?.token) {
+        tokenStorage.set(response.data.token);
+      }
+      
       set({ authUser: response.data });
       
       // Connect socket after setting auth user
@@ -133,6 +138,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
     } catch (error) {
       console.log("❌ Auth check failed:", error);
+      tokenStorage.remove();
       set({ authUser: null });
     } finally {
       set({ isCheckingAuth: false });
@@ -144,6 +150,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       console.log('📝 Signing up...');
       const response = await axiosInstance.post("/auth/signup", data);
+      
+      // Token is automatically stored by axios interceptor
       set({ authUser: response.data });
       
       // Connect socket and initialize notifications
@@ -168,6 +176,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       console.log('🔑 Logging in...');
       const response = await axiosInstance.post("/auth/login", data);
+      
+      // Token is automatically stored by axios interceptor
       set({ authUser: response.data });
       
       // Connect socket
@@ -208,6 +218,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
       
       await axiosInstance.post("/auth/logout");
+      
+      // Clear token and auth state
+      tokenStorage.remove();
       set({ authUser: null });
       get().disconnectSocket();
       
@@ -215,6 +228,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (error) {
       console.error("❌ Logout error:", error);
       // Force logout on client even if server request fails
+      tokenStorage.remove();
       set({ authUser: null });
       get().disconnectSocket();
     }
@@ -250,6 +264,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
       
       await axiosInstance.delete("/auth/delete", { data });
+      
+      // Clear token and auth state
+      tokenStorage.remove();
       set({ authUser: null });
       get().disconnectSocket();
       
@@ -322,11 +339,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const newSocket = io(BASE_URL, {
         withCredentials: true,
-        transports: ['websocket', 'polling'], // Fallback to polling for better iOS compatibility
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 20000, // Longer timeout for slower connections
+        timeout: 20000,
+        auth: {
+          // Send token with socket for iOS Safari
+          token: tokenStorage.get()
+        }
       });
 
       newSocket.connect();
