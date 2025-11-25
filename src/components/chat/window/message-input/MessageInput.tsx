@@ -70,8 +70,54 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   }, [text]);
 
+  // Resize image helper: returns { dataUrl, file } where dataUrl is a data: URL (JPEG)
+  const processAndResizeImage = (file: File, maxDim = 2048, quality = 0.85): Promise<{ dataUrl: string; file: File }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const img = new globalThis.Image();
+        img.onload = () => {
+          try {
+            let { naturalWidth: w, naturalHeight: h } = img;
+            let targetW = w, targetH = h;
+            if (w > maxDim || h > maxDim) {
+              const ratio = Math.min(maxDim / w, maxDim / h);
+              targetW = Math.round(w * ratio);
+              targetH = Math.round(h * ratio);
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = targetW;
+            canvas.height = targetH;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return reject(new Error("Canvas not supported"));
+            ctx.drawImage(img, 0, 0, targetW, targetH);
+            canvas.toBlob((blob) => {
+              if (!blob) return reject(new Error("Canvas toBlob failed"));
+              const newFile = new File([blob], (file.name || `image-${Date.now()}`).replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
+              const r2 = new FileReader();
+              r2.onerror = () => reject(new Error("Failed to read resized image"));
+              r2.onload = () => resolve({ dataUrl: r2.result as string, file: newFile });
+              r2.readAsDataURL(blob);
+            }, "image/jpeg", quality);
+          } catch (err) {
+            // fallback: use original dataUrl
+            resolve({ dataUrl, file });
+          }
+        };
+        img.onerror = () => {
+          // Some mobile formats (e.g., HEIC) may not decode; fall back to original data URL
+          resolve({ dataUrl, file });
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle image with FileReader-based preview (more reliable on mobile)
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -80,36 +126,29 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     setShowCameraOptions(false);
 
-    if (file.size > 5 * 1024 * 1024) {
-      showToast?.("Max 5MB", "error");
-      return;
+    if (file.size > 10 * 1024 * 1024) { // allow up to 10MB but will be resized
+      // don't immediately reject: we will attempt to resize. Only reject extremely large (>25MB)
+      if (file.size > 25 * 1024 * 1024) {
+        showToast?.("Image too large (max 25MB). Please pick a smaller image.", "error");
+        return;
+      }
     }
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type || !file.type.startsWith("image/")) {
+      // allow unknown mime too (some HEIC may have nonstandard types), but best effort
+      // If it's not image, reject
       showToast?.("Please select an image file", "error");
       return;
     }
 
     try {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        if (!result) {
-          showToast?.("Unable to read image", "error");
-          return;
-        }
-        setPreview(result);
-        previewRef.current = result; // data: URL
-        setImage(file);
-      };
-      reader.onerror = (err) => {
-        console.error("FileReader error:", err);
-        showToast?.("Error loading image. Please try another image.", "error");
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Error creating preview:", error);
-      showToast?.("Error loading image. Please try another image.", "error");
+      const { dataUrl, file: processedFile } = await processAndResizeImage(file);
+      setPreview(dataUrl);
+      previewRef.current = dataUrl;
+      setImage(processedFile);
+    } catch (err) {
+      console.error("Error processing image:", err);
+      showToast?.("Error loading image please try another image", "error");
     }
   };
 
