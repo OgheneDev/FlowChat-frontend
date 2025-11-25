@@ -142,7 +142,7 @@ const ChatWindow = ({ selectedUser, type }: ChatWindowProps) => {
             messageListRef.current.scrollToMessage(scrollToMessageId);
           }
         }, delay);
-      });
+      }); 
       
       // Clear the scroll target after all attempts
       setTimeout(() => {

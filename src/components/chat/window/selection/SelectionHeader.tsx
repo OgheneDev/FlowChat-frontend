@@ -9,7 +9,7 @@ interface SelectionHeaderProps {
   onForward: () => void;
   onDelete: () => void;
   onCopy: () => void;
-  onStar: () => void;
+  onStar: () => void; 
   onMore: () => void;
 }
 

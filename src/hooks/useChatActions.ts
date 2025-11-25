@@ -18,7 +18,7 @@ export const useChatActions = ({
   const { deleteMessage: deletePrivate } = usePrivateChatStore();
   const { deleteMessage: deleteGroup } = useGroupStore();
   const { togglePinMessage, isPinning, pinnedMessages } = usePinningStore();
-  const { toggleStarMessage } = useStarringStore();
+  const { toggleStarMessage, starredMessages } = useStarringStore();
   const { setSelectedUser } = useUIStore();
 
   const deleteMessage = type === 'group' ? deleteGroup : deletePrivate;
@@ -39,7 +39,10 @@ export const useChatActions = ({
 
   const handleStarSelected = async () => {
     for (const id of selectedMessages) await toggleStarMessage(id);
-    showToast(`${selectedMessages.length} message(s) starred`, 'success');
+    const firstMsg = getFirstSelectedMessage();
+    const isCurrentlyStarred = firstMsg && starredMessages.includes(firstMsg._id);
+    const action = isCurrentlyStarred ? 'unstarred' : 'starred';
+    showToast(`${selectedMessages.length} message(s) ${action}`, 'success');
     clearSelection();
   };
 
@@ -60,7 +63,9 @@ export const useChatActions = ({
     const msg = getFirstSelectedMessage();
     const payload = type === 'group' ? { messageId: msg._id, groupId: selectedUser._id } : { messageId: msg._id, chatPartnerId: selectedUser._id };
     await togglePinMessage(payload);
-    showToast('Message pinned', 'success');
+    const isPinned = pinnedMessages.includes(msg._id);
+    const action = isPinned ? 'unpinned' : 'pinned';
+    showToast(`Message ${action}`, 'success');
     clearSelection();
   };
 
@@ -178,6 +183,7 @@ export const useChatActions = ({
   };
 
   const isFirstSelectedPinned = () => selectedMessages.length === 1 && pinnedMessages.includes(selectedMessages[0]);
+  const isFirstSelectedStarred = () => selectedMessages.length === 1 && starredMessages.includes(selectedMessages[0]);
   const isFirstSelectedOwn = () => {
     const msg = getFirstSelectedMessage();
     const authId = getAuthId();
@@ -186,8 +192,16 @@ export const useChatActions = ({
   };
 
   const singleSelectionMoreActions = [
-    { label: isFirstSelectedPinned() ? 'Unpin' : 'Pin', onClick: handlePinSelected, disabled: isPinning === getFirstSelectedMessage()?._id },
-    { label: 'Star', onClick: handleStarSelected, disabled: false },
+    { 
+      label: isFirstSelectedPinned() ? 'Unpin' : 'Pin', 
+      onClick: handlePinSelected, 
+      disabled: isPinning === getFirstSelectedMessage()?._id 
+    },
+    { 
+      label: isFirstSelectedStarred() ? 'Unstar' : 'Star', 
+      onClick: handleStarSelected, 
+      disabled: false 
+    },
   ];
 
   const multipleSelectionMoreActions = [
@@ -214,6 +228,7 @@ export const useChatActions = ({
     singleSelectionMoreActions,
     multipleSelectionMoreActions,
     isFirstSelectedPinned,
+    isFirstSelectedStarred,
     isFirstSelectedOwn,
     isSingleSelection: selectedMessages.length === 1,
   };

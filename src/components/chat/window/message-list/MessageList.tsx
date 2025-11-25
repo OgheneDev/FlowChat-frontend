@@ -100,7 +100,7 @@ const MessageList = forwardRef<MessageListHandle, MessageListProps>(
             retryElement.scrollIntoView({ 
               behavior: 'smooth', 
               block: 'center',
-              inline: 'nearest'
+              inline: 'nearest' 
             });
             setTimeout(() => highlightMessage(messageId), 300);
           } else {

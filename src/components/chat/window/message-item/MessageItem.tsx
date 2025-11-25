@@ -371,7 +371,7 @@ const sendForwardedMessage = async (
           } ${
             isSelected ? 'bg-[#00d9ff]/10 rounded-xl border border-[#00d9ff]/20' : ''
           } ${
-            isLongPressing ? 'bg-[#00d9ff]/15 scale-[0.98] rounded-xl' : ''
+            isLongPressing ? 'bg-[#00d9ff]/15 scale-[0.98] rounded-xl' : '' 
           }`}
           onTouchStart={handleMessageTouchStart}
           onTouchMove={handleMessageTouchMove}

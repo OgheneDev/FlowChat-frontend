@@ -210,7 +210,7 @@ const ContextMenu = ({
         <span className="font-normal">{isStarred ? "Unstar" : "Star"}</span>
         <Star
           className={`w-[18px] h-[18px] ml-auto transition-all ${
-            isStarred ? "fill-[#ffba3d] text-[#ffba3d]" : "text-[#8696a0]"
+            isStarred ? "fill-[#00d9ff] text-[#00d9ff]" : "text-[#8696a0]"
           }`}
         />
       </button>
