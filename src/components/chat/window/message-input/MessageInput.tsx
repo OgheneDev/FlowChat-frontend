@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Send, X, ImageIcon, Smile } from "lucide-react";
 import { usePrivateChatStore, useGroupStore, useUIStore } from "@/stores";
 import { useAuthStore } from "@/stores";
+import { useToastStore } from "@/stores";
 import Image from "next/image";
 import ReplyPreview from "./ReplyPreview";
 import { emojiCategories } from "./emojis";
@@ -34,6 +35,10 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   const { isSendingMessage: isGroupSending } = useGroupStore();
   const { replyingTo, clearReply } = useUIStore();
   const { authUser, socket } = useAuthStore();
+  const { showToast } = useToastStore();
+
+  // track preview URL for revocation
+  const previewRef = useRef<string | null>(null);
 
   const isSendingMessage = type === "group" ? isGroupSending : isPrivateSending;
 
@@ -76,25 +81,142 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     setShowCameraOptions(false);
     
     if (file.size > 5 * 1024 * 1024) {
-      alert("Max 5MB");
+      showToast?.("Max 5MB", "error");
       return;
     }
 
-    // Check if file is an image
     if (!file.type.startsWith('image/')) {
-      alert("Please select an image file");
+      showToast?.("Please select an image file", "error");
       return;
     }
 
-    // Use Object URL for preview (mobile-friendly)
+    // Revoke old preview if it was a blob
+    if (previewRef.current && previewRef.current.startsWith('blob:')) {
+      try { URL.revokeObjectURL(previewRef.current); } catch {}
+    }
+
     try {
       const objectUrl = URL.createObjectURL(file);
       setPreview(objectUrl);
+      previewRef.current = objectUrl;
       setImage(file);
     } catch (error) {
       console.error("Error creating preview:", error);
-      alert("Error loading image. Please try another image.");
+      showToast?.("Error loading image. Please try another image.", "error");
     }
+  };
+
+  // ensure we revoke blob URL when component unmounts / preview changes
+  useEffect(() => {
+    return () => {
+      if (previewRef.current && previewRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(previewRef.current); } catch {}
+        previewRef.current = null;
+      }
+    };
+  }, []);
+
+  // Convert image to base64 for socket transmission
+  const imageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === "string") resolve(reader.result);
+        else reject(new Error("Failed to read file"));
+      };
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Send message via Socket.IO
+  const send = async () => {
+    if (isSendingMessage || (!text.trim() && !image)) return;
+    
+    if (!socket || !socket.connected) {
+      console.error("Socket not connected");
+      showToast?.("Connection lost. Please refresh the page.", "error");
+      return;
+    }
+
+    if (!authUser) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    const payload: any = {};
+    if (text.trim()) payload.text = text.trim();
+    
+    // Convert image to base64 for sending to server
+    let imageBase64 = "";
+    if (image) {
+      try {
+        imageBase64 = await imageToBase64(image);
+        payload.image = imageBase64;
+      } catch (err) {
+        console.error("Image read failed:", err);
+        showToast?.("Failed to read image. Please try again.", "error");
+        return;
+      }
+    }
+    
+    if (replyingTo) payload.replyTo = replyingTo._id;
+
+    try {
+      // Create optimistic message for UI - use base64 for display
+      const optimisticMessage = {
+        _id: `temp-${Date.now()}-${Math.random()}`,
+        text: payload.text || "",
+        image: imageBase64 || null,
+        senderId: authUser,
+        receiverId: type === "group" ? undefined : receiverId,
+        groupId: type === "group" ? receiverId : undefined,
+        status: "sent" as const,
+        replyTo: replyingTo || null,
+        createdAt: new Date().toISOString(),
+      } as any;
+
+      // Add optimistically to UI
+      if (type === "group") {
+        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
+        socket.emit("sendGroupMessage", { groupId: receiverId, ...payload });
+      } else {
+        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
+        socket.emit("sendMessage", { receiverId, ...payload });
+      }
+
+      // Revoke preview blob URL if any
+      if (previewRef.current && previewRef.current.startsWith('blob:')) {
+        try { URL.revokeObjectURL(previewRef.current); } catch {}
+        previewRef.current = null;
+      }
+
+      // Clear form
+      setText("");
+      setImage(null);
+      setPreview("");
+      clearReply();
+      
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      showToast?.("Failed to send message. Please try again.", "error");
+    }
+  };
+
+  const getCategoryEmojis = (category: EmojiCategory): string[] => {
+    if (category === "recent") return recentEmojis;
+    return emojiCategories[category].emojis;
+  };
+
+  const insertEmoji = (emoji: string) => {
+    setText((prev) => prev + emoji);
+    setRecentEmojis((prev) => {
+      const filtered = prev.filter((e) => e !== emoji);
+      return [emoji, ...filtered].slice(0, 8);
+    });
+    textareaRef.current?.focus();
   };
 
   // Direct camera access using MediaDevices API with modern WhatsApp-style UI
@@ -399,114 +521,6 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   };
 
-  const insertEmoji = (emoji: string) => {
-    setText((prev) => prev + emoji);
-    setRecentEmojis((prev) => {
-      const filtered = prev.filter((e) => e !== emoji);
-      return [emoji, ...filtered].slice(0, 8);
-    });
-    textareaRef.current?.focus();
-  };
-
-  // Convert image to base64 for socket transmission
-  const imageToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  // Send message via Socket.IO
-  const send = async () => {
-    if (isSendingMessage || (!text.trim() && !image)) return;
-    
-    if (!socket || !socket.connected) {
-      console.error("Socket not connected");
-      alert("Connection lost. Please refresh the page.");
-      return;
-    }
-
-    if (!authUser) {
-      console.error("User not authenticated");
-      return;
-    }
-
-    const payload: any = {};
-    if (text.trim()) payload.text = text.trim();
-    
-    // Convert image to base64 for sending to server
-    let imageBase64 = "";
-    if (image) {
-      imageBase64 = await imageToBase64(image);
-      payload.image = imageBase64;
-    }
-    
-    if (replyingTo) payload.replyTo = replyingTo._id;
-
-    try {
-      // Create optimistic message for UI - use base64 for display
-      const optimisticMessage = {
-        _id: `temp-${Date.now()}-${Math.random()}`,
-        text: payload.text || "",
-        image: imageBase64 || null, // Use base64 instead of blob URL
-        senderId: authUser,
-        receiverId: type === "group" ? undefined : receiverId,
-        groupId: type === "group" ? receiverId : undefined,
-        status: "sent" as const,
-        replyTo: replyingTo || null,
-        createdAt: new Date().toISOString(),
-      } as any;
-
-      console.log("➕ Adding optimistic message:", optimisticMessage._id);
-
-      // Add optimistically to UI
-      if (type === "group") {
-        useGroupStore.getState().addIncomingGroupMessage(optimisticMessage);
-        console.log("📤 Emitting sendGroupMessage to server");
-        socket.emit("sendGroupMessage", {
-          groupId: receiverId,
-          ...payload,
-        });
-      } else {
-        usePrivateChatStore.getState().addIncomingMessage(optimisticMessage);
-        console.log("📤 Emitting sendMessage to server");
-        socket.emit("sendMessage", {
-          receiverId,
-          ...payload,
-        });
-      }
-      
-      console.log("✅ Message sent successfully (optimistic)");
-
-      // Clean up preview blob URL (but not the base64 in message)
-      if (preview && preview.startsWith('blob:')) {
-        URL.revokeObjectURL(preview);
-      }
-
-      // Clear form
-      setText("");
-      setImage(null);
-      setPreview("");
-      clearReply();
-      
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-      }
-      
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      alert("Failed to send message. Please try again.");
-    }
-  };
-
-  const getCategoryEmojis = (category: EmojiCategory): string[] => {
-    if (category === "recent") return recentEmojis;
-    return emojiCategories[category].emojis;
-  };
-
   return (
     <div className="border-t border-[#2a2a2a] bg-[#1e1e1e] p-3 space-y-2 sticky bottom-0 z-10">
       {/* Reply Preview */}
@@ -523,18 +537,20 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       {preview && (
         <div className="relative inline-block max-w-full">
           <div className="relative bg-[#2a2a2a] rounded-xl p-2 inline-block max-w-[90%]">
-            <Image
-              width={160}
-              height={160}
+            {/* Use native <img> for blob/data URLs; Next/Image doesn't support blob: URLs reliably */}
+            <img
               src={preview}
               alt="preview"
-              className="max-h-40 rounded-lg object-contain max-w-full" 
+              className="max-h-40 rounded-lg object-contain max-w-full"
+              decoding="async"
+              loading="eager"
             />
             <button
               onClick={() => {
-                // Revoke object URL to free memory
-                if (preview.startsWith('blob:')) {
-                  URL.revokeObjectURL(preview);
+                // Revoke object URL to free memory (if applicable)
+                if (previewRef.current && previewRef.current.startsWith('blob:')) {
+                  try { URL.revokeObjectURL(previewRef.current); } catch {}
+                  previewRef.current = null;
                 }
                 setImage(null);
                 setPreview("");
