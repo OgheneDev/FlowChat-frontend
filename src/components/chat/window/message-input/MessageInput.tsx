@@ -70,16 +70,16 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   }, [text]);
 
-  // Handle image with better mobile support using Object URL
+  // Handle image with FileReader-based preview (more reliable on mobile)
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // Clear previous file input
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     setShowCameraOptions(false);
-    
+
     if (file.size > 5 * 1024 * 1024) {
       showToast?.("Max 5MB", "error");
       return;
@@ -90,49 +90,57 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       return;
     }
 
-    // Revoke old preview if it was a blob
-    if (previewRef.current && previewRef.current.startsWith('blob:')) {
-      try { URL.revokeObjectURL(previewRef.current); } catch {}
-    }
-
     try {
-      const objectUrl = URL.createObjectURL(file);
-      setPreview(objectUrl);
-      previewRef.current = objectUrl;
-      setImage(file);
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        if (!result) {
+          showToast?.("Unable to read image", "error");
+          return;
+        }
+        setPreview(result);
+        previewRef.current = result; // data: URL
+        setImage(file);
+      };
+      reader.onerror = (err) => {
+        console.error("FileReader error:", err);
+        showToast?.("Error loading image. Please try another image.", "error");
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error("Error creating preview:", error);
       showToast?.("Error loading image. Please try another image.", "error");
     }
   };
 
-  // ensure we revoke blob URL when component unmounts / preview changes
+  // ensure we clear previewRef when component unmounts
   useEffect(() => {
     return () => {
-      if (previewRef.current && previewRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(previewRef.current); } catch {}
-        previewRef.current = null;
-      }
+      previewRef.current = null;
     };
   }, []);
 
-  // Convert image to base64 for socket transmission
+  // Convert image to base64 for socket transmission - keep for large-file safety fallback
   const imageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") resolve(reader.result);
-        else reject(new Error("Failed to read file"));
-      };
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
+      try {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") resolve(reader.result);
+          else reject(new Error("Failed to read file"));
+        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      } catch (err) {
+        reject(err);
+      }
     });
   };
 
   // Send message via Socket.IO
   const send = async () => {
     if (isSendingMessage || (!text.trim() && !image)) return;
-    
+
     if (!socket || !socket.connected) {
       console.error("Socket not connected");
       showToast?.("Connection lost. Please refresh the page.", "error");
@@ -146,28 +154,29 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
     const payload: any = {};
     if (text.trim()) payload.text = text.trim();
-    
-    // Convert image to base64 for sending to server
-    let imageBase64 = "";
+
+    // If preview is already a data URL, reuse it; otherwise read file
     if (image) {
-      try {
-        imageBase64 = await imageToBase64(image);
-        payload.image = imageBase64;
-      } catch (err) {
-        console.error("Image read failed:", err);
-        showToast?.("Failed to read image. Please try again.", "error");
-        return;
+      if (previewRef.current && previewRef.current.startsWith('data:')) {
+        payload.image = previewRef.current;
+      } else {
+        try {
+          payload.image = await imageToBase64(image);
+        } catch (err) {
+          console.error("Image read failed:", err);
+          showToast?.("Failed to read image. Please try again.", "error");
+          return;
+        }
       }
     }
-    
+
     if (replyingTo) payload.replyTo = replyingTo._id;
 
     try {
-      // Create optimistic message for UI - use base64 for display
       const optimisticMessage = {
         _id: `temp-${Date.now()}-${Math.random()}`,
         text: payload.text || "",
-        image: imageBase64 || null,
+        image: payload.image || null,
         senderId: authUser,
         receiverId: type === "group" ? undefined : receiverId,
         groupId: type === "group" ? receiverId : undefined,
@@ -185,20 +194,13 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
         socket.emit("sendMessage", { receiverId, ...payload });
       }
 
-      // Revoke preview blob URL if any
-      if (previewRef.current && previewRef.current.startsWith('blob:')) {
-        try { URL.revokeObjectURL(previewRef.current); } catch {}
-        previewRef.current = null;
-      }
-
-      // Clear form
+      // Clear form and preview
       setText("");
       setImage(null);
       setPreview("");
+      previewRef.current = null;
       clearReply();
-      
       if (textareaRef.current) textareaRef.current.style.height = "auto";
-      
     } catch (error) {
       console.error("Failed to send message:", error);
       showToast?.("Failed to send message. Please try again.", "error");
@@ -480,9 +482,15 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
                 
                 // Use Object URL for preview
                 try {
-                  const objectUrl = URL.createObjectURL(blob);
-                  setPreview(objectUrl);
-                  setImage(file);
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const dataUrl = reader.result as string;
+                    setPreview(dataUrl);
+                    previewRef.current = dataUrl;
+                    setImage(file);
+                  };
+                  reader.onerror = () => { showToast?.("Error processing captured image", "error"); };
+                  reader.readAsDataURL(blob);
                   
                   cleanup();
                 } catch (error) {
