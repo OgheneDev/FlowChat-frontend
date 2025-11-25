@@ -1,8 +1,11 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Star, ArrowLeft, ChevronRight } from "lucide-react";
+import { Star, ArrowLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useStarringStore, useAuthStore } from "@/stores";
+import { LoadingSkeleton } from "./LoadingSkeleton";
+import { ErrorState } from "./ErrorState";
+import { EmptyState } from "./EmptyState";
 
 interface Props {
   isOpen: boolean;
@@ -15,55 +18,9 @@ const StarredMessagesModal: React.FC<Props> = ({ isOpen, onClose, onSelectMessag
     starredMessageItems, 
     modalLoading, 
     modalError,
-    loadStarredMessagesForModal 
   } = useStarringStore();
   
-  const { authUser } = useAuthStore();
-
-  // Loading skeleton component
-  const LoadingSkeleton = () => (
-    <div className="space-y-3 p-4">
-      {[...Array(6)].map((_, index) => (
-        <div key={index} className="flex items-start gap-3 p-3 rounded-lg bg-[#1a1a1a] animate-pulse">
-          <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex-shrink-0"></div>
-          <div className="flex-1 space-y-2">
-            <div className="flex justify-between">
-              <div className="h-4 bg-[#2a2a2a] rounded w-1/3"></div>
-              <div className="h-3 bg-[#2a2a2a] rounded w-1/4"></div>
-            </div>
-            <div className="h-3 bg-[#2a2a2a] rounded w-2/3"></div>
-            <div className="h-3 bg-[#2a2a2a] rounded w-1/2"></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  // Error state component
-  const ErrorState = () => (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <AlertCircle className="w-12 h-12 text-red-500 mb-3" />
-      <h4 className="text-white font-medium mb-2">Failed to load starred messages</h4>
-      <p className="text-[#999] text-sm mb-4">{modalError}</p>
-      <button
-        onClick={loadStarredMessagesForModal}
-        className="px-4 py-2 bg-[#00d9ff] text-black rounded-lg hover:bg-[#00c4e6] transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  );
-
-  // Empty state component
-  const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center p-8 text-center">
-      <Star className="w-16 h-16 text-[#f5d04c] mb-4 opacity-50" />
-      <h4 className="text-white font-medium mb-2">No Starred Messages</h4>
-      <p className="text-[#999] text-sm">
-        Messages you star will appear here for easy access.
-      </p>
-    </div>
-  );
+  const { authUser } = useAuthStore(); 
 
   const formatMessageTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -142,7 +99,7 @@ const StarredMessagesModal: React.FC<Props> = ({ isOpen, onClose, onSelectMessag
               {modalLoading ? (
                 <LoadingSkeleton />
               ) : modalError ? (
-                <ErrorState />
+                <ErrorState modalError={modalError} />
               ) : starredMessageItems.length === 0 ? (
                 <EmptyState />
               ) : (

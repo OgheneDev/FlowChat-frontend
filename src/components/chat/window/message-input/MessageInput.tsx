@@ -6,7 +6,6 @@ import { usePrivateChatStore, useGroupStore, useUIStore } from "@/stores";
 import { useAuthStore } from "@/stores";
 import Image from "next/image";
 import ReplyPreview from "./ReplyPreview";
-import { Message } from "@/types/types";
 import { emojiCategories } from "./emojis";
 
 type EmojiCategory = "recent" | "smileys" | "gestures" | "hearts" | "animals" | "food" | "activities" | "objects" | "symbols" | "flags";
@@ -66,7 +65,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     }
   }, [text]);
 
-  // Handle image with better mobile support
+  // Handle image with better mobile support using Object URL
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -87,16 +86,15 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPreview(reader.result as string);
-    };
-    reader.onerror = () => {
-      console.error("Error reading image file");
+    // Use Object URL for preview (mobile-friendly)
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setPreview(objectUrl);
+      setImage(file);
+    } catch (error) {
+      console.error("Error creating preview:", error);
       alert("Error loading image. Please try another image.");
-    };
-    reader.readAsDataURL(file);
-    setImage(file);
+    }
   };
 
   // Direct camera access using MediaDevices API with modern WhatsApp-style UI
@@ -146,7 +144,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       controlsContainer.style.gap = '40px';
       controlsContainer.style.zIndex = '1001';
 
-      // Create gallery button (left) - images only
+      // Create gallery button (left)
       const galleryBtn = document.createElement('button');
       galleryBtn.innerHTML = `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -258,12 +256,13 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
             stream.getTracks().forEach(track => track.stop());
           }
 
-          // Request camera access
+          // Request camera access with higher resolution
           stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
               facingMode: facingMode,
-              width: { ideal: 1920 },
-              height: { ideal: 1080 }
+              width: { ideal: 3840, max: 4096 },
+              height: { ideal: 2160, max: 4096 },
+              aspectRatio: { ideal: 16/9 }
             } 
           });
           
@@ -311,7 +310,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
           }
         };
 
-        // Capture photo
+        // Capture photo with proper mirroring and quality
         captureBtn.onclick = () => {
           if (ctx && video.videoWidth > 0) {
             // Flash effect
@@ -333,26 +332,44 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
               }
             }, 150);
 
+            // Set canvas to actual video dimensions for best quality
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
+            
+            // Mirror the image if using front camera
+            if (currentFacingMode === 'user') {
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+            }
+            
             ctx.drawImage(video, 0, 0);
             
+            // Reset transform
+            if (currentFacingMode === 'user') {
+              ctx.setTransform(1, 0, 0, 1, 0, 0);
+            }
+            
+            // Use higher quality JPEG
             canvas.toBlob((blob) => {
               if (blob) {
                 const file = new File([blob], `camera-${Date.now()}.jpg`, { 
                   type: 'image/jpeg' 
                 });
                 
-                const reader = new FileReader();
-                reader.onload = () => {
-                  setPreview(reader.result as string);
-                };
-                reader.readAsDataURL(blob);
-                setImage(file);
-                
-                cleanup();
+                // Use Object URL for preview
+                try {
+                  const objectUrl = URL.createObjectURL(blob);
+                  setPreview(objectUrl);
+                  setImage(file);
+                  
+                  cleanup();
+                } catch (error) {
+                  console.error("Error creating preview:", error);
+                  alert("Error loading captured image.");
+                  cleanup();
+                }
               }
-            }, 'image/jpeg', 0.95);
+            }, 'image/jpeg', 0.98);
           }
         };
 
@@ -391,7 +408,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     textareaRef.current?.focus();
   };
 
-  // Convert image to base64 for socket transmission (from old version)
+  // Convert image to base64 for socket transmission
   const imageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -401,7 +418,7 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
     });
   };
 
-  // Send message via Socket.IO (from old version - PROVEN WORKING)
+  // Send message via Socket.IO
   const send = async () => {
     if (isSendingMessage || (!text.trim() && !image)) return;
     
@@ -418,17 +435,22 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
 
     const payload: any = {};
     if (text.trim()) payload.text = text.trim();
+    
+    // Convert image to base64 for sending to server
+    let imageBase64 = "";
     if (image) {
-      payload.image = await imageToBase64(image);
+      imageBase64 = await imageToBase64(image);
+      payload.image = imageBase64;
     }
+    
     if (replyingTo) payload.replyTo = replyingTo._id;
 
     try {
-      // Create optimistic message for UI (using old version structure)
+      // Create optimistic message for UI - use base64 for display
       const optimisticMessage = {
         _id: `temp-${Date.now()}-${Math.random()}`,
         text: payload.text || "",
-        image: preview || null,
+        image: imageBase64 || null, // Use base64 instead of blob URL
         senderId: authUser,
         receiverId: type === "group" ? undefined : receiverId,
         groupId: type === "group" ? receiverId : undefined,
@@ -457,6 +479,11 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
       }
       
       console.log("✅ Message sent successfully (optimistic)");
+
+      // Clean up preview blob URL (but not the base64 in message)
+      if (preview && preview.startsWith('blob:')) {
+        URL.revokeObjectURL(preview);
+      }
 
       // Clear form
       setText("");
@@ -505,6 +532,10 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
             />
             <button
               onClick={() => {
+                // Revoke object URL to free memory
+                if (preview.startsWith('blob:')) {
+                  URL.revokeObjectURL(preview);
+                }
                 setImage(null);
                 setPreview("");
               }}

@@ -69,12 +69,10 @@ const MessageItem = forwardRef<HTMLDivElement, MessageItemProps>(
 
     // Determine if an image message is still pending (optimistic)
     const isPendingImage = Boolean(
-      message.image &&
-      (
-        (typeof message._id === "string" && message._id.startsWith("temp-")) ||
-        (isOwn && message.status === "sent")
-      )
-    );
+  message.image &&
+  typeof message._id === "string" && 
+  message._id.startsWith("temp-")
+);
 
     let senderFullName: string | null = null;
 

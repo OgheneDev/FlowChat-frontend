@@ -14,7 +14,7 @@ import { TabContent } from './TabContent';
 import ConfirmModal from './ConfirmModal';
 import CreateGroupModal from './CreateGroupModal';
 import SettingsModal from './SettingsModal';
-import StarredMessagesModal from './StarredMessagesModal';
+import StarredMessagesModal from './starred-messages/StarredMessagesModal';
 
 interface AuthUser {
   profilePic?: string;
