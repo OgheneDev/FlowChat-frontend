@@ -73,43 +73,124 @@ const MessageInput = ({ receiverId, type }: MessageInputProps) => {
   // Resize image helper: returns { dataUrl, file } where dataUrl is a data: URL (JPEG)
   const processAndResizeImage = (file: File, maxDim = 2048, quality = 0.85): Promise<{ dataUrl: string; file: File }> => {
     return new Promise((resolve, reject) => {
+      console.log("Starting FileReader...");
       const reader = new FileReader();
-      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.onerror = (e) => {
+        console.error("FileReader error:", e);
+        reject(new Error("Failed to read file"));
+      };
       reader.onload = () => {
+        console.log("FileReader loaded, creating image...");
         const dataUrl = reader.result as string;
         const img = new globalThis.Image();
+        
+        // Set a timeout for image loading (mobile images can be slow)
+        const loadTimeout = setTimeout(() => {
+          console.log("Image load timeout, using original file");
+          img.src = ''; // Cancel loading
+          // If image fails to load, just use the original file
+          const r = new FileReader();
+          r.onload = () => {
+            console.log("Fallback: using original file");
+            resolve({ dataUrl: r.result as string, file });
+          };
+          r.onerror = () => reject(new Error("Failed to read file (timeout fallback)"));
+          r.readAsDataURL(file);
+        }, 10000); // 10 second timeout
+        
         img.onload = () => {
+          clearTimeout(loadTimeout);
+          console.log("Image loaded successfully:", img.naturalWidth, "x", img.naturalHeight);
           try {
             let { naturalWidth: w, naturalHeight: h } = img;
+            
+            // Handle zero or invalid dimensions
+            if (!w || !h || w < 1 || h < 1) {
+              console.warn("Invalid dimensions, using original file");
+              const r = new FileReader();
+              r.onload = () => resolve({ dataUrl: r.result as string, file });
+              r.onerror = () => reject(new Error("Failed to read file (invalid dimensions)"));
+              r.readAsDataURL(file);
+              return;
+            }
+            
             let targetW = w, targetH = h;
             if (w > maxDim || h > maxDim) {
               const ratio = Math.min(maxDim / w, maxDim / h);
               targetW = Math.round(w * ratio);
               targetH = Math.round(h * ratio);
+              console.log("Resizing from", w, "x", h, "to", targetW, "x", targetH);
+            } else {
+              console.log("No resize needed");
             }
+            
+            // Ensure minimum dimensions
+            targetW = Math.max(1, targetW);
+            targetH = Math.max(1, targetH);
+            
             const canvas = document.createElement("canvas");
             canvas.width = targetW;
             canvas.height = targetH;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return reject(new Error("Canvas not supported"));
+            const ctx = canvas.getContext("2d", { alpha: false });
+            if (!ctx) {
+              console.warn("Canvas context failed, using original file");
+              // Fallback to original
+              const r = new FileReader();
+              r.onload = () => resolve({ dataUrl: r.result as string, file });
+              r.onerror = () => reject(new Error("Failed to read file (no canvas context)"));
+              r.readAsDataURL(file);
+              return;
+            }
+            
+            // Fill with white background (helps with transparency issues)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, targetW, targetH);
             ctx.drawImage(img, 0, 0, targetW, targetH);
+            
+            console.log("Creating blob...");
             canvas.toBlob((blob) => {
-              if (!blob) return reject(new Error("Canvas toBlob failed"));
+              if (!blob) {
+                console.warn("Blob creation failed, using original file");
+                // Fallback to original
+                const r = new FileReader();
+                r.onload = () => resolve({ dataUrl: r.result as string, file });
+                r.onerror = () => reject(new Error("Failed to read file (blob creation failed)"));
+                r.readAsDataURL(file);
+                return;
+              }
+              console.log("Blob created, size:", blob.size);
               const newFile = new File([blob], (file.name || `image-${Date.now()}`).replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
               const r2 = new FileReader();
               r2.onerror = () => reject(new Error("Failed to read resized image"));
-              r2.onload = () => resolve({ dataUrl: r2.result as string, file: newFile });
+              r2.onload = () => {
+                console.log("Final file ready");
+                resolve({ dataUrl: r2.result as string, file: newFile });
+              };
               r2.readAsDataURL(blob);
             }, "image/jpeg", quality);
           } catch (err) {
-            // fallback: use original dataUrl
-            resolve({ dataUrl, file });
+            console.error("Error in image processing:", err);
+            // Fallback: use original file
+            const r = new FileReader();
+            r.onload = () => resolve({ dataUrl: r.result as string, file });
+            r.onerror = () => reject(new Error("Failed to read file (processing exception)"));
+            r.readAsDataURL(file);
           }
         };
-        img.onerror = () => {
-          // Some mobile formats (e.g., HEIC) may not decode; fall back to original data URL
-          resolve({ dataUrl, file });
+        
+        img.onerror = (err) => {
+          clearTimeout(loadTimeout);
+          console.error("Image load error:", err);
+          // Mobile formats (HEIC, etc.) may not decode; use original file
+          const r = new FileReader();
+          r.onload = () => {
+            console.log("Image decode failed, using original file");
+            resolve({ dataUrl: r.result as string, file });
+          };
+          r.onerror = () => reject(new Error("Failed to read file (image decode failed)"));
+          r.readAsDataURL(file);
         };
+        
         img.src = dataUrl;
       };
       reader.readAsDataURL(file);
