@@ -79,7 +79,7 @@ const SecuritySection: React.FC<Props> = (props) => {
 
       <AnimatePresence>
         {showChangePassword && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4" onClick={() => setShowChangePassword(false)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] h-full flex items-center justify-center p-4" onClick={() => setShowChangePassword(false)}>
             <motion.div initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }} onClick={(e)=>e.stopPropagation()} className="bg-gradient-to-b from-[#1a1a1a] overflow-y-auto to-[#0f0f0f] md:h-[500px] rounded-2xl p-6 max-w-md w-full border-2 border-[#00d9ff]/30 shadow-2xl shadow-[#00d9ff]/10">
               <div className="flex items-start gap-3 mb-6">
                 <div className="p-2 bg-[#00d9ff]/10 rounded-xl">
@@ -146,9 +146,9 @@ const SecuritySection: React.FC<Props> = (props) => {
               </div>
 
               <div className="flex gap-3 mt-6">
-                <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={()=>setShowChangePassword(false)} className="flex-1 px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl hover:bg-[#252525]">Cancel</motion.button>
-                <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={handleChangePassword} disabled={isChangingPassword || Object.values(passwordChecks).some(v=>!v)} className="flex-1 px-4 py-2.5 bg-[#00d9ff] text-black rounded-xl hover:bg-[#00c0e0] disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isChangingPassword ? <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />Changing...</> : <><Check className="w-4 h-4" />Change Password</>}
+                <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={()=>setShowChangePassword(false)} className="flex-1 px-4 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-xl hover:bg-[#252525] text-[12px] md:text-sm cursor-pointer">Cancel</motion.button>
+                <motion.button whileHover={{scale:1.02}} whileTap={{scale:0.98}} onClick={handleChangePassword} disabled={isChangingPassword || Object.values(passwordChecks).some(v=>!v)} className="flex-1 px-4 py-2.5 bg-[#00d9ff] text-black rounded-xl text-[12px] md:text-sm cursor-pointer hover:bg-[#00c0e0] disabled:opacity-50 flex items-center justify-center gap-2">
+                  {isChangingPassword ? <><div className="w-4 h-4 border-2 border-black text-sm border-t-transparent rounded-full animate-spin" />Changing...</> : <><Check className="w-4 h-4" />Change Password</>}
                 </motion.button>
               </div>
             </motion.div>

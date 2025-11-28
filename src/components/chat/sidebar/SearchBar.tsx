@@ -75,7 +75,7 @@ const SearchBar: React.FC<Props> = ({
               {searchResults.users.map((user) => (
                 <button key={user._id} onClick={() => handleUserClick(user)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2a2a2a] transition-colors cursor-pointer">
                   <div className="size-10 rounded-full overflow-hidden bg-[#121212] flex-shrink-0">
-                    {user.profilePic ? <Image src={user.profilePic} alt={user.fullName} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><User className="w-5 h-5 text-[#999999]" /></div>}
+                    {user.profilePic ? <Image width={50} height={50} src={user.profilePic} alt={user.fullName} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><User className="w-5 h-5 text-[#999999]" /></div>}
                   </div>
                   <div className="flex-1 text-left">
                     <div className="text-sm font-medium text-white">{user.fullName}</div>
@@ -92,7 +92,7 @@ const SearchBar: React.FC<Props> = ({
               {searchResults.groups.map((group) => (
                 <button key={group._id} onClick={() => handleGroupClick(group)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2a2a2a] transition-colors cursor-pointer">
                   <div className="size-10 rounded-full overflow-hidden bg-[#121212] flex-shrink-0">
-                    {group.groupImage ? <Image src={group.groupImage} alt={group.name} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><Users className="w-5 h-5 text-[#999999]" /></div>}
+                    {group.groupImage ? <Image width={50} height={50} src={group.groupImage} alt={group.name} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><Users className="w-5 h-5 text-[#999999]" /></div>}
                   </div>
                   <div className="flex-1 text-left">
                     <div className="text-sm font-medium text-white">{group.name}</div>
@@ -109,8 +109,8 @@ const SearchBar: React.FC<Props> = ({
               {searchResults.messages.map((message) => (
                 <button key={message._id} onClick={() => handleMessageClick(message)} className="w-full flex items-start gap-3 px-4 py-3 hover:bg-[#2a2a2a] transition-colors cursor-pointer">
                   <div className="size-10 rounded-full overflow-hidden bg-[#121212] flex-shrink-0">
-                    {message.groupId ? (message.groupId.groupImage ? <Image src={message.groupId.groupImage} alt={message.groupId.name} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><Hash className="w-5 h-5 text-[#999999]" /></div>)
-                      : message.senderId?.profilePic ? <Image src={message.senderId.profilePic} alt={message.senderId.fullName} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><User className="w-5 h-5 text-[#999999]" /></div>}
+                    {message.groupId ? (message.groupId.groupImage ? <Image width={50} height={50} src={message.groupId.groupImage} alt={message.groupId.name} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><Hash className="w-5 h-5 text-[#999999]" /></div>)
+                      : message.senderId?.profilePic ? <Image width={50} height={50} src={message.senderId.profilePic} alt={message.senderId.fullName} className="size-full object-cover" /> : <div className="size-full flex items-center justify-center"><User className="w-5 h-5 text-[#999999]" /></div>}
                   </div>
                   <div className="flex-1 text-left min-w-0">
                     <div className="text-sm font-medium text-white truncate">{message.groupId ? message.groupId.name : message.senderId?.fullName}</div>
